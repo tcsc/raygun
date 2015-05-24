@@ -1,6 +1,11 @@
+//! Implements matrix operations suited for 3D graphics work.
+
 use std::fmt;
 use std::cmp;
 use std::ops;
+
+#[cfg(test)]
+// use test::Bencher;
 
 /**
  * Defines a 4x4 matrix for manipulating 3D vectors & points in homogeneous
@@ -13,7 +18,7 @@ pub struct Matrix([f64; 16]);
 /**
  * The identity matrix
  */
-static IDENTITY : Matrix = Matrix([
+pub static IDENTITY : Matrix = Matrix([
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
     0.0, 0.0, 1.0, 0.0,
@@ -23,25 +28,15 @@ static IDENTITY : Matrix = Matrix([
 /**
  * An all-zero matrix
  */
-static ZERO : Matrix = Matrix([
+pub static ZERO : Matrix = Matrix([
     0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0
 ]);
 
-fn row_col_dot_product(lhs: &Matrix, rhs: &Matrix, i: usize, j: usize) -> f64 {
-  let &Matrix(ref a) = lhs;
-  let &Matrix(ref b) = rhs;
-
-  (a[ 0 + i] * b[(j*4) + 0]) +
-  (a[ 4 + i] * b[(j*4) + 1]) +
-  (a[ 8 + i] * b[(j*4) + 2]) +
-  (a[12 + i] * b[(j*4) + 3])
-}
-
 impl Matrix {
-  fn transpose(&self) -> Matrix {
+  pub fn transpose(&self) -> Matrix {
     let Matrix(mut result) = ZERO;
     for j in 0usize .. 4usize {
       for i in 0usize ..4usize {
@@ -52,32 +47,13 @@ impl Matrix {
   }
 }
 
-#[test]
-fn matrix_transpose() -> () {
-  let mut m = IDENTITY;
-  m[(0, 3)] = 42.0;
-
-  let mt = m.transpose();
-
-  assert_eq!(mt[(0,3)], 0.0);
-  assert_eq!(mt[(3,0)], 42.0);
-}
-
-#[test]
-fn matrix_transpose_reflexivity() -> () {
-  assert_eq!(IDENTITY, IDENTITY.transpose().transpose())
-}
-
 impl Default for Matrix {
   fn default() -> Matrix { ZERO }
 }
 
-#[test]
-fn matrix_default() -> () {
-  let m : Matrix = Default::default();
-  assert_eq!(m, ZERO)
-}
-
+/**
+ * Debug formatting
+ */
 impl fmt::Debug for Matrix {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let &Matrix(ref values) = self;
@@ -96,6 +72,9 @@ impl fmt::Debug for Matrix {
   }
 }
 
+/**
+ * Implements equality tests for matrices
+ */
 impl cmp::PartialEq for Matrix {
   fn eq(&self, other: &Matrix) -> bool {
     let &Matrix(ref a) = self;
@@ -122,6 +101,7 @@ impl ops::Index<(usize, usize)> for Matrix {
   }
 }
 
+/// Implements m[(i,j)] = x.
 impl ops::IndexMut<(usize, usize)> for Matrix {
   fn index_mut<'a>(&'a mut self, idx: (usize, usize)) -> &'a mut f64 {
     let Matrix(ref mut values) = *self;
@@ -130,6 +110,23 @@ impl ops::IndexMut<(usize, usize)> for Matrix {
   }
 }
 
+/**
+ * Takes the dot product of a given row and column of two matrices, as part of
+ * matrix multiplication.
+ */
+fn row_col_dot_product(lhs: &Matrix, rhs: &Matrix, i: usize, j: usize) -> f64 {
+  let &Matrix(ref a) = lhs;
+  let &Matrix(ref b) = rhs;
+
+  (a[ 0 + i] * b[(j*4) + 0]) +
+  (a[ 4 + i] * b[(j*4) + 1]) +
+  (a[ 8 + i] * b[(j*4) + 2]) +
+  (a[12 + i] * b[(j*4) + 3])
+}
+
+/**
+ * Implements proper matrix multiplcation for our 4x4 matrices
+ */
 impl ops::Mul<Matrix> for Matrix {
   type Output = Matrix;
 
@@ -144,8 +141,52 @@ impl ops::Mul<Matrix> for Matrix {
   }
 }
 
-#[test]
-fn matrix_multiply_identity() -> () {
-  let m = IDENTITY * IDENTITY;
-  assert_eq!(m, IDENTITY);
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  #[test]
+  fn matrix_transpose() -> () {
+    let mut m = IDENTITY;
+    m[(0, 3)] = 42.0;
+
+    let mt = m.transpose();
+
+    assert_eq!(mt[(0,3)], 0.0);
+    assert_eq!(mt[(3,0)], 42.0);
+  }
+
+  #[test]
+  fn matrix_transpose_reflexivity() -> () {
+    assert_eq!(IDENTITY, IDENTITY.transpose().transpose())
+  }
+
+  #[test]
+  fn matrix_default() -> () {
+    let m : Matrix = Default::default();
+    assert_eq!(m, ZERO)
+  }
+
+  #[test]
+  fn matrix_index_mut() {
+    let mut m = IDENTITY;
+    assert_eq!(m[(1,2)], 0.0);
+    m[(1,2)] = 42.0;
+    assert_eq!(m[(1,2)], 42.0);
+    assert_eq!(m[(2,1)], 0.0);
+  }
+
+  #[test]
+  fn matrix_multiply_identity() {
+    let m = IDENTITY * IDENTITY;
+    assert_eq!(m, IDENTITY);
+  }
+
+  // #[bench]
+  // fn matrix_mul(b: &mut Bencher) {
+  //     b.iter(|| {
+  //       let m = IDENTITY;
+  //       m * IDENTITY;
+  //     });
+  // }
 }
