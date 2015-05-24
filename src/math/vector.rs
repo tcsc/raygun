@@ -6,7 +6,7 @@ use std::ops;
 #[derive(Default, Clone, Copy)]
 pub struct Vector { x: f64, y: f64, z: f64 }
 
-/// Vector constrcuction function
+/// Vector construction function
 pub fn vector(x: f64, y: f64, z: f64) -> Vector {
   Vector {x: x, y: y, z: z}
 }
@@ -16,7 +16,7 @@ impl Vector {
     let x = (self.y * other.z) - (self.z * other.y);
     let y = (self.z * other.x) - (self.x * other.z);
     let z = (self.x * other.y) - (self.y * other.x);
-    Vector {x: x, y: y, z: z}
+    vector(x, y, z)
   }
 
   pub fn dot(&self, other: Vector) -> f64 {
@@ -168,6 +168,7 @@ mod test {
     assert_eq!(a, b);
     assert!(!(a == c) && !(b == c))
   }
+
   #[test]
   fn vector_addition() -> () {
     let a = Vector { x: 1.0, y:  3.0, z:  5.0 };
