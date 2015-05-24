@@ -4,9 +4,6 @@ use std::fmt;
 use std::cmp;
 use std::ops;
 
-#[cfg(test)]
-// use test::Bencher;
-
 /**
  * Defines a 4x4 matrix for manipulating 3D vectors & points in homogeneous
  * co-ordinates. Matrix values are immutable, and all operations on them
