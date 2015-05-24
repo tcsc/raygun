@@ -12,6 +12,14 @@ pub fn vector(x: f64, y: f64, z: f64) -> Vector {
 }
 
 impl Vector {
+  /// Creates a vector representing the direction from `src` to `dst`
+  pub fn between(src: Point, dst: Point) -> Vector {
+    let x = dst.x - src.x;
+    let y = dst.y - src.y;
+    let z = dst.z - src.z;
+    vector(x, y, z)
+  }
+
   pub fn cross(&self, other: Vector) -> Vector {
     let x = (self.y * other.z) - (self.z * other.y);
     let y = (self.z * other.x) - (self.x * other.z);
@@ -23,6 +31,7 @@ impl Vector {
     (self.x * other.x) +  (self.y * other.y) + (self.z * other.z)
   }
 
+  /// Calculates the length of the vector
   pub fn length(&self) -> f64 {
     let x = self.x * self.x;
     let y = self.y * self.y;
@@ -30,19 +39,12 @@ impl Vector {
     (x + y + z).sqrt()
   }
 
+  /// Scales the vector such that |self| == 1.0
   pub fn normalize(&self) -> Vector {
     let inv_len = 1.0 / self.length();
     Vector { x: self.x * inv_len, y: self.y * inv_len, z: self.z * inv_len }
   }
 }
-
-pub fn vector_between(src: Point, dst: Point) -> Vector {
-  let x = dst.x - src.x;
-  let y = dst.y - src.y;
-  let z = dst.z - src.z;
-  Vector {x: x, y: y, z: z}
-}
-
 
 impl fmt::Debug for Vector {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -120,7 +122,15 @@ mod test {
   use super::*;
 
   #[test]
-  fn vector_cross_product() -> () {
+  fn vector_between() {
+    let src = point(1.0, 2.0, 3.0);
+    let dst = point(5.0, 7.0, 9.0);
+    let v = Vector::between(src, dst);
+    assert_eq!(v, vector(4.0, 5.0, 6.0))
+  }
+
+  #[test]
+  fn vector_cross_product() {
     let a = Vector { x: 2.0, y: 3.0, z: 4.0 };
     let b = Vector { x: 5.0, y: 6.0, z: 7.0 };
     assert_eq!(a.cross(b), Vector { x: -3.0, y: 6.0, z: -3.0 })
