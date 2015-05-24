@@ -4,17 +4,17 @@ use std::fmt;
 use std::cmp;
 use std::ops;
 
-/**
- * Defines a 4x4 matrix for manipulating 3D vectors & points in homogeneous
- * co-ordinates. Matrix values are immutable, and all operations on them
- * generate a new matrix.
- */
+///
+/// Defines a 4x4 matrix for manipulating 3D vectors & points in homogeneous
+/// co-ordinates. Matrix values are generally immutable, and most operations
+/// on them generate a new matrix.
+///
 #[derive(Copy, Clone)]
 pub struct Matrix([f64; 16]);
 
-/**
- * The identity matrix
- */
+///
+/// The identity matrix
+///
 pub static IDENTITY : Matrix = Matrix([
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
@@ -22,9 +22,9 @@ pub static IDENTITY : Matrix = Matrix([
     0.0, 0.0, 0.0, 1.0
 ]);
 
-/**
- * An all-zero matrix
- */
+///
+/// An all-zero matrix
+///
 pub static ZERO : Matrix = Matrix([
     0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0,
@@ -48,9 +48,9 @@ impl Default for Matrix {
   fn default() -> Matrix { ZERO }
 }
 
-/**
- * Debug formatting
- */
+///
+/// Debug formatting
+///
 impl fmt::Debug for Matrix {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let &Matrix(ref values) = self;
@@ -69,9 +69,9 @@ impl fmt::Debug for Matrix {
   }
 }
 
-/**
- * Implements equality tests for matrices
- */
+///
+/// Implements equality tests for matrices
+///
 impl cmp::PartialEq for Matrix {
   fn eq(&self, other: &Matrix) -> bool {
     let &Matrix(ref a) = self;
@@ -98,7 +98,9 @@ impl ops::Index<(usize, usize)> for Matrix {
   }
 }
 
+///
 /// Implements m[(i,j)] = x.
+//
 impl ops::IndexMut<(usize, usize)> for Matrix {
   fn index_mut<'a>(&'a mut self, idx: (usize, usize)) -> &'a mut f64 {
     let Matrix(ref mut values) = *self;
@@ -107,10 +109,10 @@ impl ops::IndexMut<(usize, usize)> for Matrix {
   }
 }
 
-/**
- * Takes the dot product of a given row and column of two matrices, as part of
- * matrix multiplication.
- */
+///
+/// Takes the dot product of a given row and column of two matrices, as part of
+/// matrix multiplication.
+///
 fn row_col_dot_product(lhs: &Matrix, rhs: &Matrix, i: usize, j: usize) -> f64 {
   let &Matrix(ref a) = lhs;
   let &Matrix(ref b) = rhs;
@@ -121,9 +123,9 @@ fn row_col_dot_product(lhs: &Matrix, rhs: &Matrix, i: usize, j: usize) -> f64 {
   (a[12 + i] * b[(j*4) + 3])
 }
 
-/**
- * Implements proper matrix multiplcation for our 4x4 matrices
- */
+///
+/// Implements proper matrix multiplcation for our 4x4 matrices
+///
 impl ops::Mul<Matrix> for Matrix {
   type Output = Matrix;
 
