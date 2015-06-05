@@ -3,4 +3,3 @@ pub use self::vector::*;
 
 mod matrix;
 mod vector;
-

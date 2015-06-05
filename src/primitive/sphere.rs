@@ -4,7 +4,7 @@ use ray::Ray;
 use primitive::primitive::Primitive;
 
 ///
-/// A Sphere primative
+/// A Sphere primitive
 ///
 #[derive(Debug)]
 pub struct Sphere {
