@@ -97,7 +97,7 @@ macro_rules! vec_mul_impl {
 
             #[inline]
             fn mul(self, other: $t) -> Vector {
-                let v = (other as f64);
+                let v = other as f64;
                 vector(self.x * v, self.y * v, self.z * v)
             }
         }
@@ -106,7 +106,7 @@ macro_rules! vec_mul_impl {
             type Output = Vector;
 
             fn mul(self, other: Vector) -> Vector {
-                let v = (self as f64);
+                let v = self as f64;
                 vector(other.x * v, other.y * v, other.z * v)
             }
         }
