@@ -4,7 +4,7 @@ use math::{Point, Vector};
 /// Represents a ray through the scene, starting at `src` and heading along
 /// `dir`. The vector is always normalised.
 ///
-#[derive(Debug, PartialEq, Eq, )]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Ray {
 	pub src: Point,
 	pub dir: Vector

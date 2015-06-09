@@ -12,6 +12,12 @@ pub struct Sphere {
     radius: f64
 }
 
+impl Sphere {
+    pub fn new(loc: Point, radius: f64) -> Box<Sphere> {
+        Box::new(Sphere{ centre: loc, radius: radius })
+    }
+}
+
 impl Default for Sphere {
     fn default() -> Sphere {
         Sphere {
