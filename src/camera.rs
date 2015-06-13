@@ -82,7 +82,7 @@ struct Projection {
 }
 
 impl Projection {
-    pub fn ray_for(&self, x: isize, y: isize) -> Ray {
+    pub fn ray_for(&self, x: u32, y: u32) -> Ray {
         let pixel_pos = self.topleft + (x * self.dx) + (y * self.dy);
         let v = Vector::between(self.src, pixel_pos).normalize();
         Ray::new(self.src, v)

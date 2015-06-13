@@ -54,6 +54,15 @@ impl Vector {
         let inv_len = 1.0 / self.length();
         vector(self.x * inv_len, self.y * inv_len, self.z * inv_len)
     }
+
+    ///
+    /// Tests that the vector is approximately equal to another vector.
+    ///
+    pub fn approx_eq(&self, other: Vector) -> bool {
+        (self.x - other.x).abs() < 1e-10 &&
+        (self.y - other.y).abs() < 1e-10 &&
+        (self.z - other.z).abs() < 1e-10
+    }
 }
 
 impl fmt::Debug for Vector {
@@ -136,8 +145,8 @@ macro_rules! vec_div_impl {
     )*)
 }
 
-vec_mul_impl!(usize isize i32 i64 f32 f64);
-vec_div_impl!(usize isize i32 i64 f32 f64);
+vec_mul_impl!(usize isize i32 u32 i64 u64 f32 f64);
+vec_div_impl!(usize isize i32 u32 i64 u64 f32 f64);
 
 impl ops::Neg for Vector {
     type Output = Vector;

@@ -59,6 +59,10 @@ impl Primitive for Sphere {
             }
         }
     }
+
+    fn normal(&self, pt: Point) -> Vector {
+        (pt - self.centre).normalize()
+    }
 }
 
 
@@ -98,5 +102,25 @@ mod test {
         if let Some(_) = s.intersects(r) {
             panic!("Ray intersects")
         }
+    }
+
+    #[test]
+    fn cardinal_normals_are_as_expected() {
+        let s = Sphere::default();
+
+        let p1 = point(1.0, 0.0, 0.0);
+        let v1 = vector(1.0, 0.0, 0.0);
+        let n1 = s.normal(p1);
+        assert!(n1.approx_eq(v1), "Expected {:?}, got {:?}", v1, n1);
+
+        let p2 = point(0.0, 1.0, 0.0);
+        let v2 = vector(0.0, 1.0, 0.0);
+        let n2 = s.normal(p2);
+        assert!(n2.approx_eq(v2), "Expected {:?}, got {:?}", v2, n2);
+
+        let p3 = point(0.0, 0.0, 1.0);
+        let v3 = vector(0.0, 0.0, 1.0);
+        let n3 = s.normal(p3);
+        assert!(n3.approx_eq(v3), "Expected {:?}, got {:?}", v3, n3);
     }
 }
