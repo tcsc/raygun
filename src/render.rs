@@ -38,9 +38,9 @@ pub fn render(scene: &Scene, options: RenderOptions) -> Option<RgbaImage> {
 
 fn pack_pixel(c: Colour) -> Rgba<u8> {
     Rgba([
-        (255.0 * c.r) as u8,
-        (255.0 * c.g) as u8,
-        (255.0 * c.b) as u8,
+        (255.0 * c.r).min(255.0) as u8,
+        (255.0 * c.g).min(255.0) as u8,
+        (255.0 * c.b).min(255.0) as u8,
         255,
     ])
 }
@@ -78,6 +78,26 @@ fn closest_intersecting_object<'a>(r: Ray, scene: &'a Scene) -> Option<Intersect
 }
 
 ///
+/// Specular highlights using the blinn-phong shading model
+///
+fn blinn_phong_highlight(viewdir: UnitVector,
+                         light_ray: Ray,
+                         surface_normal: UnitVector,
+                         light_colour: Colour,
+                         finish: &Finish) -> Colour {
+    if !finish.highlight_hardness.is_infinite() {
+        let half_vector = (light_ray.dir - viewdir).normalize();
+        let intensity = half_vector.dot(surface_normal)
+                                   .max(0.0)
+                                   .powf(finish.highlight_hardness);
+
+        light_colour * intensity
+    } else {
+       colour::black
+    }
+}
+
+///
 /// Calculates the light ingfalling on the given point, from all lights in the scene
 ///
 fn light_surface(viewdir: UnitVector,
@@ -96,13 +116,29 @@ fn light_surface(viewdir: UnitVector,
             // define a ray pointing from the surface to the light source
             let pp = surface_pt + (1e-6 * surface_normal);
             let light_ray = Ray::new(pp, light_beam.normalize());
-            let lambert_coeff = light_ray.dir.dot(surface_normal);
-            let diffuse = surface_finish.diffuse * surface_colour * light.colour() * lambert_coeff;
-            result = result + diffuse;
-        }
 
+            if !is_shadowed(light_ray, light_beam.length(), scene) {
+                // compute the diffuse lighting
+                let lambert_coeff = light_ray.dir.dot(surface_normal);
+                let diffuse = surface_finish.diffuse * surface_colour * light.colour() * lambert_coeff;
+
+                // compute the specular highlight
+                let specular = blinn_phong_highlight(viewdir, light_ray, surface_normal, light.colour(),
+                                                     surface_finish);
+                result = result + diffuse + specular;
+            }
+        }
     }
     result
+}
+
+fn is_shadowed(light_ray: Ray, light_distance: f64, scene: &Scene) -> bool {
+    if let Some(ix) = closest_intersecting_object(light_ray, scene) {
+        true// ix.dist < light_distance
+    }
+    else {
+        false
+    }
 }
 
 ///
@@ -114,15 +150,14 @@ fn trace(r: Ray, scene: &Scene) -> Colour {
             let surface_point = r.extend(ix.dist);
             let surface_normal = ix.obj.normal(surface_point);
             let surface_colour = colour::white;
-            light_surface(r.dir,
-                                          surface_point,
-                                          surface_normal,
-                                          surface_colour,
-                                          &Finish::default(),
-                                          scene)
+            light_surface(r.dir, surface_point,
+                                 surface_normal,
+                                 surface_colour,
+                                 &Finish::default(),
+                                 scene)
         }
         else {
-            colour::white
+            colour::black
         }
     //}
 }

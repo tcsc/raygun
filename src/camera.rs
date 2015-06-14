@@ -20,7 +20,7 @@ impl Default for Camera {
             loc: point( 0.0, 0.0, 0.0),
             dir: vector(0.0, 0.0, 1.0),
             up:  vector(0.0, 1.0, 0.0),
-            hfov: degrees(39.6).radians(),
+            hfov: degrees(39.0).radians(),
             vfov: degrees(27.0).radians()
         }
     }

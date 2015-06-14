@@ -41,12 +41,16 @@ fn make_scene() -> Scene {
 	let mut sc = Scene::new();
 	let objs : Vec<Box<primitive::Primitive>> =
 		(0..20).map(|n| n as f64)
-			   .map(|n| Sphere::new(point(n - 10.0, 0.0, (n - 10.0)*2.0), 1.0))
+			   .map(|n| Sphere::new(point((n - 10.0)*1.25, 0.0, (n - 10.0)*4.0), 1.0))
 			   .map(|s| s as Box<primitive::Primitive>)
 			   .collect();
 
 	sc.add_objects(objs);
-	sc.add_light(math::point(100.0, 100.0, -100.0), colour::white);
+	sc.add_light(math::point(100.0, 000.0, -000.0), colour::white);
+	sc.add_light(math::point(100.0,   0.0, -100.0), colour::Colour{r: 0.5, g: 0.0, b: 0.0});
+	sc.add_light(math::point(000.0,   0.0, -100.0), colour::Colour{r: 0.0, g: 0.25, b: 0.0});
+	sc.add_light(math::point(-100.0,  0.0, -100.0), colour::Colour{r: 0.0, g: 0.0, b: 0.25});
+
 	sc.camera = sc.camera.with_loc(0.0, 0.0, -20.0);
 	sc
 }
