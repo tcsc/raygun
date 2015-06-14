@@ -134,7 +134,7 @@ fn light_surface(viewdir: UnitVector,
 
 fn is_shadowed(light_ray: Ray, light_distance: f64, scene: &Scene) -> bool {
     if let Some(ix) = closest_intersecting_object(light_ray, scene) {
-        true// ix.dist < light_distance
+        ix.dist < light_distance
     }
     else {
         false
@@ -166,9 +166,10 @@ fn trace(r: Ray, scene: &Scene) -> Colour {
 #[cfg(test)]
 mod test {
     use super::*;
+    use colour;
     use primitive::Sphere;
     use scene::Scene;
-    use math::{point, vector};
+    use math::{point, vector, Vector};
     use ray::Ray;
 
     fn test_scene() -> Scene {
@@ -197,12 +198,53 @@ mod test {
     }
 
     #[test]
-    fn non_intersecting_ray_finds_nothong() {
+    fn non_intersecting_ray_finds_nothing() {
         let s = test_scene();
         let r = Ray::new(point(0.0, 0.0, -10.0), vector(0.0, 1.0, 1.0));
         match super::closest_intersecting_object(r, &s) {
             None => {},
             Some(_) => panic!("Expected an intersecting object")
         }
+    }
+
+    #[test]
+    fn un_occluded_light_is_not_shadowed() {
+        let mut s = Scene::new();
+        let light_loc = point(100.0, 100.0, 100.0);
+        s.add_light(light_loc, colour::white);
+
+        let surface_pt = point(0.0, 0.0, 0.0);
+        let light_beam = Vector::between(surface_pt, light_loc);
+        let light_ray = Ray::new(surface_pt, light_beam.normalize());
+
+        assert!(!super::is_shadowed(light_ray, light_beam.length(), &s))
+    }
+
+    #[test]
+    fn occluded_light_is_shadowed() {
+        let mut s = Scene::new();
+        let light_loc = point(100.0, 100.0, 100.0);
+        s.add_light(light_loc, colour::white);
+        s.add_object(Sphere::new(point(90.0, 90.0, 90.0), 2.0));
+
+        let surface_pt = point(0.0, 0.0, 0.0);
+        let light_beam = Vector::between(surface_pt, light_loc);
+        let light_ray = Ray::new(surface_pt, light_beam.normalize());
+
+        assert!(super::is_shadowed(light_ray, light_beam.length(), &s))
+    }
+
+    #[test]
+    fn objects_on_other_side_of_light_do_not_occlude_light() {
+        let mut s = Scene::new();
+        let light_loc = point(100.0, 100.0, 100.0);
+        s.add_light(light_loc, colour::white);
+        s.add_object(Sphere::new(point(110.0, 110.0, 11.0), 2.0));
+
+        let surface_pt = point(0.0, 0.0, 0.0);
+        let light_beam = Vector::between(surface_pt, light_loc);
+        let light_ray = Ray::new(surface_pt, light_beam.normalize());
+
+        assert!(!super::is_shadowed(light_ray, light_beam.length(), &s))
     }
 }
