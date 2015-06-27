@@ -3,7 +3,7 @@ use std::ops;
 ///
 /// A colour value, with each channel normalised between 0 and 1
 ///
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Colour { pub r: f64, pub g: f64, pub b: f64 }
 
 pub const black : Colour = Colour { r: 0.0, g: 0.0, b: 0.0 };

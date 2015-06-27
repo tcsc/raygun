@@ -1,4 +1,5 @@
 extern crate image;
+extern crate parser_combinators as pc;
 
 use std::fs::File;
 use std::path::Path;
@@ -12,6 +13,7 @@ mod camera;
 mod material;
 mod ray;
 mod scene;
+mod scenefile;
 mod render;
 
 type Pixel = image::Rgba<u8>;
