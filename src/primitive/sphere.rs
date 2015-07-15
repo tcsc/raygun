@@ -16,6 +16,9 @@ impl Sphere {
     pub fn new(loc: Point, radius: f64) -> Box<Sphere> {
         Box::new(Sphere{ centre: loc, radius: radius })
     }
+
+    pub fn centre(&self) -> Point { self.centre }
+    pub fn radius(&self) -> f64 { self.radius }
 }
 
 impl Default for Sphere {

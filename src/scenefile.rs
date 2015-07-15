@@ -236,18 +236,42 @@ fn vector_literal<I>(input: State<I>) -> ParseResult<Vector, I, char>
 // Geometric Primitives
 // ////////////////////////////////////////////////////////////////////////////
 
-// fn sphere<I>(input: State<I>) -> ParseResult<Sphere, I, char> {
-//     use pc::string;
-//     use pc::between;
+///
+/// Panics if the types don't match
+///
+fn find_arg<T: Any+Copy>(name: &str, argv: &Vec<NamedValue>, default: T) -> T {
+    match argv.iter().find(|x| x.name == name) {
+        Some(named_val) =>  {
+            *named_val.value.downcast_ref::<T>().unwrap()
+        },
+        None => default
+    }
+}
 
-//     ler arg =
+fn sphere<I>(input: State<I>) -> ParseResult<Box<Sphere>, I, char>
+    where I: Stream<Item=char>
+{
+    use pc::many;
 
-//     let body = between(token)
+    let arglist = many(field("centre", parser(vector_literal))
+                   .or(field("radius", parser(real))));
 
-//     string("sphere").skip(spaces).with(
+    named_block("sphere", arglist).map(|args: Vec<NamedValue>| {
+            let loc = find_arg("centre", &args, vector(0.0, 0.0, 0.0));
+            let radius = find_arg("radius", &args, 1.0 as f64);
+            Sphere::new(loc, radius)
+        })
+        .parse_state(input)
+}
 
-//         )
-// }
+fn sphere_primitive<I>(input: State<I>) -> ParseResult<Box<Primitive>, I, char>
+    where I: Stream<Item=char>
+{
+    parser(sphere)
+        .map(|s| s as Box<Primitive>)
+        .parse_state(input)
+}
+
 
 // ////////////////////////////////////////////////////////////////////////////
 //
@@ -350,5 +374,23 @@ mod test {
         assert_eq!(b("second").parse("second { b }"), Ok(('b', "")));
         assert_eq!(b("third").parse("third   {c }"), Ok(('c', "")));
         assert_eq!(b("fourth").parse("fourth{ d }"), Ok(('d', "")));
+    }
+
+    #[test]
+    fn parse_empty_sphere() {
+        use super::sphere;
+        use math::point;
+        use primitive::Sphere;
+
+        use std::any::Any;
+        let p = || parser(sphere);
+
+        match p().parse("sphere {}") {
+            Ok((obj, _)) => {
+                assert_eq!(obj.radius(), 1.0);
+                assert_eq!(obj.centre(), point(0.0, 0.0, 0.0))
+            },
+            Err(e) => panic!("Parse failed {:?}", e)
+        }
     }
 }
