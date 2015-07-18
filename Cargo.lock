@@ -5,7 +5,7 @@ dependencies = [
  "clap 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.3.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "num 0.1.24 (registry+https://github.com/rust-lang/crates.io-index)",
- "parser-combinators 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parser-combinators 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -61,7 +61,7 @@ dependencies = [
 
 [[package]]
 name = "parser-combinators"
-version = "0.5.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]

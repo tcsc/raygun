@@ -51,7 +51,7 @@ impl<P> Parser for ListOf<P>
 }
 
 ///
-/// Parses a comma-separated list of tokens, where the token is defined by a
+/// Parses a comma-separated list of n tokens, where the token is defined by a
 /// user-supplied parser.
 ///
 fn list_of<P>(n: usize, p: P) -> ListOf<P>
@@ -107,6 +107,35 @@ fn field<P>(name: &'static str, parser: P) -> Field<P>
     where P : Parser
 {
     Field{ name: name, parser: parser }
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// Parses a list of fields
+// ////////////////////////////////////////////////////////////////////////////
+
+struct FieldList<P> { parser: P }
+
+impl<P> Parser for FieldList<P>
+    where P : Parser<Output=NamedValue>,
+         <P as Parser>::Input : Stream<Item=char>
+{
+    type Input = <P as Parser>::Input;
+    type Output = Vec<NamedValue>;
+
+    fn parse_state(&mut self, input: State<Self::Input>) ->
+        ParseResult<Self::Output, Self::Input, <Self::Input as Stream>::Item>
+    {
+        use pc::sep_by;
+        let arg_with_spaces = spaces().with(&mut self.parser).skip(spaces());
+        sep_by(arg_with_spaces, token(',')).parse_state(input)
+    }
+}
+
+fn field_list<P>(parser: P) -> FieldList<P>
+    where P : Parser<Output=NamedValue>,
+         <P as Parser>::Input : Stream<Item=char>
+{
+    FieldList { parser: parser }
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -248,17 +277,20 @@ fn find_arg<T: Any+Copy>(name: &str, argv: &Vec<NamedValue>, default: T) -> T {
     }
 }
 
+///
+///
+///
 fn sphere<I>(input: State<I>) -> ParseResult<Box<Sphere>, I, char>
     where I: Stream<Item=char>
 {
-    use pc::many;
+    let args = field_list(
+            field("centre", parser(vector_literal))
+        .or(field("radius", parser(real)))
+    );
 
-    let arglist = many(field("centre", parser(vector_literal))
-                   .or(field("radius", parser(real))));
-
-    named_block("sphere", arglist).map(|args: Vec<NamedValue>| {
-            let loc = find_arg("centre", &args, vector(0.0, 0.0, 0.0));
-            let radius = find_arg("radius", &args, 1.0 as f64);
+    named_block("sphere", args).map(|argv: Vec<NamedValue>| {
+            let loc = find_arg("centre", &argv, vector(0.0, 0.0, 0.0));
+            let radius = find_arg("radius", &argv, 1.0 as f64);
             Sphere::new(loc, radius)
         })
         .parse_state(input)
@@ -314,6 +346,25 @@ mod test {
         }
         else {
             panic!("Got {:?}", rval)
+        }
+    }
+
+    #[test]
+    fn parse_field_list() {
+        use pc::{hex_digit, char, ParserExt};
+        use super::{field, field_list, real, find_arg};
+
+        let mut args = field_list(field("hex",  hex_digit())
+                              .or(field("real", parser(real)))
+                       );
+        match args.parse("hex: a, real: 3.14159") {
+            Ok((argv, _)) => {
+                assert_eq!('a',     find_arg("hex",  &argv, '0'));
+                assert_eq!(3.14159, find_arg("real", &argv, 0.0));
+            },
+            Err(e) => {
+                panic!("{:?}", e);
+            }
         }
     }
 
@@ -389,6 +440,24 @@ mod test {
             Ok((obj, _)) => {
                 assert_eq!(obj.radius(), 1.0);
                 assert_eq!(obj.centre(), point(0.0, 0.0, 0.0))
+            },
+            Err(e) => panic!("Parse failed {:?}", e)
+        }
+    }
+
+    #[test]
+    fn parse_specified_sphere() {
+        use super::sphere;
+        use math::point;
+        use primitive::Sphere;
+
+        use std::any::Any;
+        let p = || parser(sphere);
+
+        match p().parse("sphere { centre: {0.0, 1.0, 2.0}, radius: 3.14159 }") {
+            Ok((obj, _)) => {
+                assert_eq!(obj.radius(), 3.14159);
+                assert_eq!(obj.centre(), point(0.0, 1.0, 2.0))
             },
             Err(e) => panic!("Parse failed {:?}", e)
         }
