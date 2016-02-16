@@ -1,14 +1,16 @@
 use std::f64;
 use std::any::Any;
+use std::collections::HashMap;
 
 use pc::{Parser, ParserExt, parser, space, spaces, digit};
-use pc::primitives::{Consumed, ParseResult, State, Error, Stream};
+use pc::primitives::{Consumed, ParseResult, State, ParseError, Stream};
 use pc::combinator::{Between, Token, FnParser, skip_many, many1, token, optional};
 use pc::char::{char};
 
 use colour::Colour;
 use math::{Vector, vector};
 use primitive::{Primitive, Sphere};
+use light::PointLight;
 
 // ////////////////////////////////////////////////////////////////////////////
 // A list of N items
@@ -26,7 +28,7 @@ impl<P> Parser for ListOf<P>
     type Output = Vec<<P as Parser>::Output>;
 
     fn parse_state(&mut self, input: State<Self::Input>) ->
-        ParseResult<Self::Output, Self::Input, <Self::Input as Stream>::Item>
+        ParseResult<Self::Output, Self::Input>
     {
         let mut result = Vec::with_capacity(self.n);
         let mut text = Consumed::Empty(input);
@@ -75,17 +77,15 @@ struct Field<P> {
     parser: P,
 }
 
-impl<P> Parser for Field<P>
-    where P : Parser,
-        <P as Parser>::Input : Stream<Item=char>,
-        <P as Parser>::Output : Any
+impl<P> Parser for Field<P> where P : Parser,
+    <P as Parser>::Input : Stream<Item=char>,
+    <P as Parser>::Output : Any
 {
     type Input = <P as Parser>::Input;
     type Output = NamedValue;
 
     fn parse_state(&mut self, input: State<Self::Input>) ->
-        ParseResult<NamedValue, Self::Input, <Self::Input as Stream>::Item>
-    {
+           ParseResult<Self::Output, Self::Input> {
         use pc::string;
 
         let (val, remainder) =
@@ -123,19 +123,35 @@ impl<P> Parser for FieldList<P>
     type Output = Vec<NamedValue>;
 
     fn parse_state(&mut self, input: State<Self::Input>) ->
-        ParseResult<Self::Output, Self::Input, <Self::Input as Stream>::Item>
-    {
+            ParseResult<Self::Output, Self::Input> {
         use pc::sep_by;
         let arg_with_spaces = spaces().with(&mut self.parser).skip(spaces());
         sep_by(arg_with_spaces, token(',')).parse_state(input)
     }
 }
 
+///
+/// Creates a field list parser around a set of options.
+///
 fn field_list<P>(parser: P) -> FieldList<P>
     where P : Parser<Output=NamedValue>,
          <P as Parser>::Input : Stream<Item=char>
 {
     FieldList { parser: parser }
+}
+
+///
+/// Find the named field, returning the default value if it can't be found. If
+/// multiple instances of the field name are present, the first instance in the
+/// list is returned.
+///
+fn find_arg<T: Any+Copy>(name: &str, argv: &Vec<NamedValue>, default: T) -> T {
+    match argv.iter().find(|x| x.name == name) {
+        Some(named_val) =>  {
+            *named_val.value.downcast_ref::<T>().unwrap()
+        },
+        None => default
+    }
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -153,8 +169,7 @@ impl<P> Parser for Block<P>
     type Output = <P as Parser>::Output;
 
     fn parse_state(&mut self, input: State<Self::Input>) ->
-        ParseResult<Self::Output, Self::Input, char>
-    {
+            ParseResult<Self::Output, Self::Input> {
         use pc::between;
 
         let leader = token('{').with(spaces());
@@ -186,8 +201,7 @@ impl<P> Parser for NamedBlock<P>
     type Output = <P as Parser>::Output;
 
     fn parse_state(&mut self, input: State<Self::Input>) ->
-        ParseResult<Self::Output, Self::Input, char>
-    {
+            ParseResult<Self::Output, Self::Input> {
         use pc::string;
 
         string(self.name)
@@ -204,13 +218,27 @@ fn named_block<P>(name: &'static str, parser: P) -> NamedBlock<P>
 }
 
 // ////////////////////////////////////////////////////////////////////////////
+// Parse state
+// ////////////////////////////////////////////////////////////////////////////
+
+struct SceneState {
+    colours: HashMap<String, Colour>
+}
+
+impl SceneState {
+    fn new() -> SceneState {
+        SceneState { colours: HashMap::new() }
+    }
+}
+
+// ////////////////////////////////////////////////////////////////////////////
 // Basic Parsing primitives
 // ////////////////////////////////////////////////////////////////////////////
 
 ///
 /// Parses a real number into a an f64
 ///
-fn real<I>(input: State<I>) -> ParseResult<f64, I, char>
+fn real<I>(input: State<I>) -> ParseResult<f64, I>
     where I: Stream<Item=char>
 {
     let sign = optional(char('-').or(char('+')));
@@ -231,7 +259,7 @@ fn real<I>(input: State<I>) -> ParseResult<f64, I, char>
             let f = match t.1 {
                 None => 0.0,
                 Some((_, digits)) => {
-                    let val = (digits.parse::<i64>().unwrap() as f64);
+                    let val = digits.parse::<i64>().unwrap() as f64;
                     let scale = (10.0 as f64).powi(digits.len() as i32);
                     val / scale
                 }
@@ -245,7 +273,7 @@ fn real<I>(input: State<I>) -> ParseResult<f64, I, char>
 ///
 /// Parses a colour literal of the form { r, g, b } into a Colour object
 ///
-fn colour_literal<I>(input: State<I>) -> ParseResult<Colour, I, char>
+fn colour_literal<I>(input: State<I>) -> ParseResult<Colour, I>
     where I: Stream<Item=char>
 {
     block(list_of(3, parser(real)))
@@ -253,7 +281,7 @@ fn colour_literal<I>(input: State<I>) -> ParseResult<Colour, I, char>
         .parse_state(input)
 }
 
-fn vector_literal<I>(input: State<I>) -> ParseResult<Vector, I, char>
+fn vector_literal<I>(input: State<I>) -> ParseResult<Vector, I>
     where I: Stream<Item=char>
 {
     block(list_of(3, parser(real)))
@@ -266,21 +294,9 @@ fn vector_literal<I>(input: State<I>) -> ParseResult<Vector, I, char>
 // ////////////////////////////////////////////////////////////////////////////
 
 ///
-/// Panics if the types don't match
+/// A sphere literal
 ///
-fn find_arg<T: Any+Copy>(name: &str, argv: &Vec<NamedValue>, default: T) -> T {
-    match argv.iter().find(|x| x.name == name) {
-        Some(named_val) =>  {
-            *named_val.value.downcast_ref::<T>().unwrap()
-        },
-        None => default
-    }
-}
-
-///
-///
-///
-fn sphere<I>(input: State<I>) -> ParseResult<Box<Sphere>, I, char>
+fn sphere<I>(input: State<I>) -> ParseResult<Box<Sphere>,I >
     where I: Stream<Item=char>
 {
     let args = field_list(
@@ -289,14 +305,14 @@ fn sphere<I>(input: State<I>) -> ParseResult<Box<Sphere>, I, char>
     );
 
     named_block("sphere", args).map(|argv: Vec<NamedValue>| {
-            let loc = find_arg("centre", &argv, vector(0.0, 0.0, 0.0));
-            let radius = find_arg("radius", &argv, 1.0 as f64);
-            Sphere::new(loc, radius)
-        })
-        .parse_state(input)
+        let loc = find_arg("centre", &argv, vector(0.0, 0.0, 0.0));
+        let radius = find_arg("radius", &argv, 1.0 as f64);
+        Sphere::new(loc, radius)
+    })
+    .parse_state(input)
 }
 
-fn sphere_primitive<I>(input: State<I>) -> ParseResult<Box<Primitive>, I, char>
+fn sphere_primitive<I>(input: State<I>) -> ParseResult<Box<Primitive>, I>
     where I: Stream<Item=char>
 {
     parser(sphere)
@@ -304,6 +320,24 @@ fn sphere_primitive<I>(input: State<I>) -> ParseResult<Box<Primitive>, I, char>
         .parse_state(input)
 }
 
+///
+/// A point light
+///
+fn point_light<I>(input: State<I>) -> ParseResult<PointLight, I>
+    where I : Stream<Item=char>
+{
+    let args = field_list(
+            field("pos",    parser(vector_literal))
+        .or(field("colour", parser(colour_literal)))
+    );
+
+    named_block("point_light", args).map(|argv: Vec<NamedValue>| {
+        let pos =    find_arg("pos",    &argv, vector(0.0, 0.0, 0.0));
+        let colour = find_arg("colour", &argv, Colour::new(1.0, 1.0, 1.0));
+        PointLight::new(pos, colour)
+    })
+    .parse_state(input)
+}
 
 // ////////////////////////////////////////////////////////////////////////////
 //
@@ -458,6 +492,22 @@ mod test {
             Ok((obj, _)) => {
                 assert_eq!(obj.radius(), 3.14159);
                 assert_eq!(obj.centre(), point(0.0, 1.0, 2.0))
+            },
+            Err(e) => panic!("Parse failed {:?}", e)
+        }
+    }
+
+    #[test]
+    fn parse_point_light() {
+        use super::point_light;
+        use colour::Colour;
+        use math::point;
+        let p = || parser(point_light);
+
+        match p().parse("point_light {pos: {0.1, 2.3, 4.5}, colour: {6.7, 8.9, 10.11}}") {
+            Ok((obj, _)) => {
+                assert_eq!(obj.position(), point(0.1, 2.3, 4.5));
+                assert_eq!(obj.colour(), Colour::new(6.7, 8.9, 10.11));
             },
             Err(e) => panic!("Parse failed {:?}", e)
         }

@@ -93,7 +93,7 @@ fn blinn_phong_highlight(viewdir: UnitVector,
 
         light_colour * intensity
     } else {
-       colour::black
+       colour::BLACK
     }
 }
 
@@ -149,7 +149,7 @@ fn trace(r: Ray, scene: &Scene) -> Colour {
         if let Some(ix) = closest_intersecting_object(r, scene) {
             let surface_point = r.extend(ix.dist);
             let surface_normal = ix.obj.normal(surface_point);
-            let surface_colour = colour::white;
+            let surface_colour = colour::WHITE;
             light_surface(r.dir, surface_point,
                                  surface_normal,
                                  surface_colour,
@@ -157,7 +157,7 @@ fn trace(r: Ray, scene: &Scene) -> Colour {
                                  scene)
         }
         else {
-            colour::black
+            colour::BLACK
         }
     //}
 }
@@ -211,7 +211,7 @@ mod test {
     fn un_occluded_light_is_not_shadowed() {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
-        s.add_light(light_loc, colour::white);
+        s.add_light(light_loc, colour::WHITE);
 
         let surface_pt = point(0.0, 0.0, 0.0);
         let light_beam = Vector::between(surface_pt, light_loc);
@@ -224,7 +224,7 @@ mod test {
     fn occluded_light_is_shadowed() {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
-        s.add_light(light_loc, colour::white);
+        s.add_light(light_loc, colour::WHITE);
         s.add_object(Sphere::new(point(90.0, 90.0, 90.0), 2.0));
 
         let surface_pt = point(0.0, 0.0, 0.0);
@@ -238,7 +238,7 @@ mod test {
     fn objects_on_other_side_of_light_do_not_occlude_light() {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
-        s.add_light(light_loc, colour::white);
+        s.add_light(light_loc, colour::WHITE);
         s.add_object(Sphere::new(point(110.0, 110.0, 11.0), 2.0));
 
         let surface_pt = point(0.0, 0.0, 0.0);

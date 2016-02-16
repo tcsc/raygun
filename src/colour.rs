@@ -6,8 +6,8 @@ use std::ops;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Colour { pub r: f64, pub g: f64, pub b: f64 }
 
-pub const black : Colour = Colour { r: 0.0, g: 0.0, b: 0.0 };
-pub const white : Colour = Colour { r: 1.0, g: 1.0, b: 1.0 };
+pub const BLACK : Colour = Colour { r: 0.0, g: 0.0, b: 0.0 };
+pub const WHITE : Colour = Colour { r: 1.0, g: 1.0, b: 1.0 };
 
 impl Colour {
     ///
@@ -18,6 +18,10 @@ impl Colour {
         (self.r - other.r).abs() < 1e-10 &&
         (self.g - other.g).abs() < 1e-10 &&
         (self.b - other.b).abs() < 1e-10
+    }
+
+    pub fn new(r: f64, g: f64, b: f64) -> Colour {
+        Colour { r: r, g: g, b: b }
     }
 }
 

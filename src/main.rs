@@ -1,5 +1,5 @@
 extern crate image;
-extern crate parser_combinators as pc;
+extern crate combine as pc;
 
 use std::fs::File;
 use std::path::Path;
@@ -48,7 +48,7 @@ fn make_scene() -> Scene {
 			   .collect();
 
 	sc.add_objects(objs);
-	sc.add_light(math::point(100.0, 000.0, -000.0), colour::white);
+	sc.add_light(math::point(100.0, 000.0, -000.0), colour::WHITE);
 	sc.add_light(math::point(100.0,   0.0, -100.0), colour::Colour{r: 0.5, g: 0.0, b: 0.0});
 	sc.add_light(math::point(000.0,   0.0, -100.0), colour::Colour{r: 0.0, g: 0.25, b: 0.0});
 	sc.add_light(math::point(-100.0,  0.0, -100.0), colour::Colour{r: 0.0, g: 0.0, b: 0.25});
