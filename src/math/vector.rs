@@ -8,7 +8,7 @@ pub struct Vector { pub x: f64, pub y: f64, pub z: f64 }
 
 /// Vector construction function
 pub fn vector(x: f64, y: f64, z: f64) -> Vector {
-    Vector {x: x, y: y, z: z}
+    Vector::new(x, y, z)
 }
 
 /// Alias of Vector for when you want to emphasize the unit-vector-ness
@@ -21,6 +21,10 @@ pub fn unit_vector(x: f64, y: f64, z: f64) -> UnitVector {
 }
 
 impl Vector {
+    pub fn new(x: f64, y: f64, z: f64) -> Vector {
+        Vector {x: x, y: y, z: z}
+    }
+
     /// Creates a vector representing the direction from `src` to `dst`
     pub fn between(src: Point, dst: Point) -> Vector {
         let x = dst.x - src.x;

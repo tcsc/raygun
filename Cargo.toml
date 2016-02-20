@@ -7,6 +7,7 @@ authors = ["Trent Clarke <trent.clarke@gmail.com>"]
 #clap = "1.4.7"
 image = "0.4.1"
 combine = "1.2.0"
+nom = "1.2.0"
 
 [profile.test]
 opt-level = 0

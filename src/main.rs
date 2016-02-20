@@ -1,5 +1,8 @@
 extern crate image;
-extern crate combine as pc;
+//extern crate combine as pc;
+
+#[macro_use]
+extern crate nom;
 
 use std::fs::File;
 use std::path::Path;
