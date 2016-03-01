@@ -3,13 +3,8 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::str::{FromStr, from_utf8};
 
-// use pc::{Parser, ParserExt, parser, space, spaces, digit};
-// use pc::primitives::{Consumed, ParseResult, State, ParseError, Stream};
-// use pc::combinator::{Between, Token, FnParser, skip_many, many1, token, optional};
-// use pc::char::{char};
-
 use colour::Colour;
-use math::{Vector, vector};
+use math::{Point, Vector, vector};
 use primitive::{Primitive, Sphere};
 use light::PointLight;
 
@@ -65,16 +60,6 @@ macro_rules! block {
     );
 }
 
-macro_rules! named_object {
-    ($i:expr, $name:expr, $submac:ident!( $($args:tt)* )) => (
-        preceded!($i, preceded!(tag!($name), whitespace0), $submac!($($args)*))
-    );
-
-    ($i:expr, $name:expr, $f:expr) => (
-        preceded!($i, preceded!(tag!($name), whitespace0), call!($f))
-    );
-}
-
 /**
  * A possibly-empty whitespace string
  */
@@ -99,6 +84,21 @@ named!(symbol<String>,
             })
         }
     ));
+
+/**
+ * A comma (potentially) surrounded by whitespace
+ */
+named!(comma<()>, chain!(whitespace0 ~ char!(',') ~ whitespace0, || {()}));
+
+macro_rules! named_object {
+    ($i:expr, $name:expr, $submac:ident!( $($args:tt)* )) => (
+        preceded!($i, preceded!(tag!($name), whitespace0), $submac!($($args)*))
+    );
+
+    ($i:expr, $name:expr, $f:expr) => (
+        preceded!($i, preceded!(tag!($name), whitespace0), call!($f))
+    );
+}
 
 // ////////////////////////////////////////////////////////////////////////////
 // Parsing numbers
@@ -139,19 +139,6 @@ named!(real_number<f64>,
     )
 );
 
-/**
- * A vector literal of the form {x, y, z}
- */
-named!(vector_literal<Vector>, block!(
-    chain!(
-        xx: real_number ~
-        whitespace0 ~ char!(',') ~ whitespace0 ~
-        yy: real_number ~
-        whitespace0 ~ char!(',') ~ whitespace0 ~
-        zz: real_number,
-        || { Vector::new(xx, yy, zz) })
-    ));
-
 fn declaration<'a, T, StoreFn, ParserFn>(
         i: &'a [u8],
         typename: &str,
@@ -173,6 +160,29 @@ fn declaration<'a, T, StoreFn, ParserFn>(
     }
 }
 
+fn named_value<'a, T, ParserFn, StoreFn>(i: &'a [u8],
+                                         name: &str,
+                                         parser: ParserFn,
+                                         mut storefn: StoreFn)
+        -> IResult<&'a [u8], ()>
+    where
+        StoreFn : FnMut(T) -> (),
+        ParserFn : Fn(&'a [u8]) -> IResult<&'a [u8], T> {
+    let result = chain!(i, tag!(name) ~ whitespace0 ~
+                        char!(':') ~ whitespace0 ~
+                        value: call!(parser),
+                        || { value } );
+
+    match result {
+        IResult::Done(i, value) => {
+            storefn(value);
+            IResult::Done(i, ())
+        },
+        IResult::Error(e) => IResult::Error(e),
+        IResult::Incomplete(x) => IResult::Incomplete(x)
+    }
+}
+
 // ////////////////////////////////////////////////////////////////////////////
 // Colours
 // ////////////////////////////////////////////////////////////////////////////
@@ -183,14 +193,15 @@ fn declaration<'a, T, StoreFn, ParserFn>(
 named!(colour_literal<Colour>, block!(
     chain!(
         rr: real_number ~
-        whitespace0 ~ char!(',') ~ whitespace0 ~
+        comma ~
         gg: real_number ~
-        whitespace0 ~ char!(',') ~ whitespace0 ~
+        comma ~
         bb: real_number,
         || { Colour::new(rr, gg, bb) })
 ));
 
-fn colour_declaration<'a>(input: &'a [u8], scene: &mut SceneState) -> IResult<&'a [u8], ()> {
+fn colour_declaration<'a>(input: &'a [u8], scene: &mut SceneState) ->
+        IResult<&'a [u8], ()> {
     declaration(input, "colour", colour_literal,
                 |i, name, value| {
                     let already_exists = scene.colours.contains_key(name);
@@ -210,30 +221,57 @@ fn colour_reference<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8]
 }
 
 fn colour<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Colour> {
-    alt!(input, call!(colour_literal) | call!(colour_reference, scene))
+    alt!(input, call!(colour_literal) |
+                call!(colour_reference, scene))
 }
 
 // ////////////////////////////////////////////////////////////////////////////
 // Primitives
 // ////////////////////////////////////////////////////////////////////////////
 
-fn sphere<'a>(input: &'a [u8]) -> IResult<&'a [u8], f64> {
-    named_object!(input, "sphere", block!(real_number))
+/**
+ * A vector literal of the form {x, y, z}
+ */
+named!(vector_literal<Vector>, block!(
+    chain!(
+        xx: real_number ~
+        comma ~
+        yy: real_number ~
+        comma ~
+        zz: real_number,
+        || { Vector::new(xx, yy, zz) })
+    ));
+
+fn sphere<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<Sphere>> {
+    let mut result = Sphere::new(Point::default(), 1.0);
+    let mut rval : IResult<&'a [u8], Vec<()>>;
+
+    /* An artifical scope to un-borrow `result` */ {
+        let mut sphere_option = |i| {
+            alt!(i,
+                call!(named_value, "radius", real_number, |r| { result.radius = r; }) |
+                call!(named_value, "centre", vector_literal, |c| { result.centre = c; })
+            )
+        };
+
+        rval = named_object!(input, "sphere",
+            block!(separated_list!(comma, sphere_option)));
+    }
+
+    match rval {
+        IResult::Done(i, _) => IResult::Done(i, result),
+        IResult::Error(e) => IResult::Error(e),
+        IResult::Incomplete(x) => IResult::Incomplete(x)
+    }
 }
-
-// pub fn parse_scenefile<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene>  {
-//     let mut s = Scene::new();
-//     chain!(
-//     //     many0!(
-//     //         alt!()
-//     //     )
-//     // )
-
-// }
 
 #[cfg(test)]
 mod test {
     use nom;
+
+    // ////////////////////////////////////////////////////////////////////////
+    // Basic parsing tools
+    // ////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_digit_string() {
@@ -297,6 +335,20 @@ mod test {
         assert_eq!(vector_literal(b"{ 1.0 , 0.5, 0.0}"), expected);
         assert_eq!(vector_literal(b"{1.0,0.5,0.0 }"), expected);
     }
+
+    #[test]
+    fn parse_named_value() {
+        use super::{named_value, real_number};
+        use nom::IResult;
+
+        let mut f  = 0.0;
+        assert_eq!(
+            named_value(b"float: 42", "float", real_number, |c| { f = c; }),
+            IResult::Done(&b""[..], ()));
+
+        assert_eq!(f, 42.0);
+    }
+
 
     // ////////////////////////////////////////////////////////////////////////
     // Colour tests
@@ -379,8 +431,22 @@ mod test {
 
     #[test]
     fn parse_sphere() {
-        use super::sphere;
+        use super::{SceneState, sphere};
+        use colour::Colour;
+        use math::point;
+        use primitive::Sphere;
+        use nom::IResult;
 
-        println!("S1: {:?}", sphere(b"sphere {1.2340}"));
+        let orange = Colour::new(1.0, 0.5, 0.0);
+        let mut state = SceneState::new();
+        state.colours.insert(String::from("orange"), orange);
+
+        match sphere(b"sphere { radius: 1.2340, centre: {1, 2, 3} }", &state) {
+            IResult::Done(_, s) => {
+                assert_eq!(s.radius, 1.234);
+                assert_eq!(s.centre, point(1.0, 2.0, 3.0));
+            },
+            IResult::Error(_) | IResult::Incomplete(_) => assert!(false)
+        }
     }
 }
