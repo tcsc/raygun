@@ -14,7 +14,7 @@ impl Colour {
     /// Is this colour the same as another colour, or at least close enough for
     /// practical purposes.
     ///
-    fn approx_eq(&self, other: Colour) -> bool {
+    pub fn approx_eq(&self, other: Colour) -> bool {
         (self.r - other.r).abs() < 1e-10 &&
         (self.g - other.g).abs() < 1e-10 &&
         (self.b - other.b).abs() < 1e-10
