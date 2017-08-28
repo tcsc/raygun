@@ -25,6 +25,10 @@ impl Colour {
     }
 }
 
+impl Default for Colour {
+    fn default() -> Colour { WHITE }
+}
+
 impl ops::Add<Colour> for Colour {
     type Output = Colour;
 

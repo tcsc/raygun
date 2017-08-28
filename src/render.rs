@@ -109,23 +109,24 @@ fn light_surface(viewdir: UnitVector,
 
     let mut result = surface_colour * surface_finish.ambient;
     for light in scene.lights.iter() {
-        let light_beam = light.position() - surface_pt;
+        if let Some(light_colour) = light.lights(surface_pt) {
+            let light_beam = light.src() - surface_pt;
 
-        // if the light beam is not behind the point we're trying to light...
-        if light_beam.dot(surface_normal) > 0.0 {
-            // define a ray pointing from the surface to the light source
-            let pp = surface_pt + (1e-6 * surface_normal);
-            let light_ray = Ray::new(pp, light_beam.normalize());
+            // if the light beam is not behind the point we're trying to light...
+            if light_beam.dot(surface_normal) > 0.0 {
+                // define a ray pointing from the surface to the light source
+                let pp = surface_pt + (1e-6 * surface_normal);
+                let light_ray = Ray::new(pp, light_beam.normalize());
 
-            if !is_shadowed(light_ray, light_beam.length(), scene) {
-                // compute the diffuse lighting
-                let lambert_coeff = light_ray.dir.dot(surface_normal);
-                let diffuse = surface_finish.diffuse * surface_colour * light.colour() * lambert_coeff;
+                if !is_shadowed(light_ray, light_beam.length(), scene) {
+                    // compute the diffuse lighting
+                    let lambert_coeff = light_ray.dir.dot(surface_normal);
+                    let diffuse = surface_finish.diffuse * surface_colour * light_colour * lambert_coeff;
 
-                // compute the specular highlight
-                let specular = blinn_phong_highlight(viewdir, light_ray, surface_normal, light.colour(),
-                                                     surface_finish);
-                result = result + diffuse + specular;
+                    // compute the specular highlight
+                    let specular = blinn_phong_highlight(viewdir, light_ray, surface_normal, light_colour, surface_finish);
+                    result = result + diffuse + specular;
+                }
             }
         }
     }
@@ -211,7 +212,7 @@ mod test {
     fn un_occluded_light_is_not_shadowed() {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
-        s.add_light(light_loc, colour::WHITE);
+        s.add_point_light(light_loc, colour::WHITE);
 
         let surface_pt = point(0.0, 0.0, 0.0);
         let light_beam = Vector::between(surface_pt, light_loc);
@@ -224,7 +225,7 @@ mod test {
     fn occluded_light_is_shadowed() {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
-        s.add_light(light_loc, colour::WHITE);
+        s.add_point_light(light_loc, colour::WHITE);
         s.add_object(Sphere::new(point(90.0, 90.0, 90.0), 2.0));
 
         let surface_pt = point(0.0, 0.0, 0.0);
@@ -238,7 +239,7 @@ mod test {
     fn objects_on_other_side_of_light_do_not_occlude_light() {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
-        s.add_light(light_loc, colour::WHITE);
+        s.add_point_light(light_loc, colour::WHITE);
         s.add_object(Sphere::new(point(110.0, 110.0, 11.0), 2.0));
 
         let surface_pt = point(0.0, 0.0, 0.0);

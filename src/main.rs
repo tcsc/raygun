@@ -1,8 +1,6 @@
 extern crate image;
-//extern crate combine as pc;
-
-#[macro_use]
-extern crate nom;
+#[macro_use] extern crate nom;
+extern crate liquid;
 
 use std::fs::File;
 use std::path::Path;
@@ -51,10 +49,10 @@ fn make_scene() -> Scene {
 			   .collect();
 
 	sc.add_objects(objs);
-	sc.add_light(math::point(100.0, 000.0, -000.0), colour::WHITE);
-	sc.add_light(math::point(100.0,   0.0, -100.0), colour::Colour{r: 0.5, g: 0.0, b: 0.0});
-	sc.add_light(math::point(000.0,   0.0, -100.0), colour::Colour{r: 0.0, g: 0.25, b: 0.0});
-	sc.add_light(math::point(-100.0,  0.0, -100.0), colour::Colour{r: 0.0, g: 0.0, b: 0.25});
+	sc.add_point_light(math::point(100.0, 000.0, -000.0), colour::WHITE);
+	sc.add_point_light(math::point(100.0,   0.0, -100.0), colour::Colour{r: 0.5, g: 0.0, b: 0.0});
+	sc.add_point_light(math::point(000.0,   0.0, -100.0), colour::Colour{r: 0.0, g: 0.25, b: 0.0});
+	sc.add_point_light(math::point(-100.0,  0.0, -100.0), colour::Colour{r: 0.0, g: 0.0, b: 0.25});
 
 	sc.camera = sc.camera.with_loc(0.0, 0.0, -20.0);
 	sc

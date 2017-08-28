@@ -2,11 +2,17 @@ use std::f64;
 use std::any::Any;
 use std::collections::HashMap;
 use std::str::{FromStr, from_utf8};
+use std::io::prelude::*;
+use std::io::{self, Result};
+use std::fs::File;
+use std::path::Path;
+use std::convert::From;
+use std::error::Error;
 
 use colour::Colour;
 use math::{Point, Vector, vector};
 use primitive::{Primitive, Sphere};
-use light::PointLight;
+use light::{Light, PointLight};
 
 use scene::Scene;
 
@@ -36,6 +42,13 @@ impl SceneState {
 // ////////////////////////////////////////////////////////////////////////////
 // Parsing tools
 // ////////////////////////////////////////////////////////////////////////////
+
+//fn block<'a, T>(input: &'a[u8], p: Parser) -> IResult<&[u8], T>
+//    where
+//        Parser: Fn(&'a[u8]) -> IResult<&'a[u8], T>
+//{
+//    ws!(delimited!(input, char!('{'), call!(p), char!('}')))
+//}
 
 /**
  * A brace-delimited block
@@ -71,24 +84,23 @@ named!(whitespace0< Vec<char> >, many0!(one_of!(" \t\n")));
 named!(whitespace1< Vec<char> >, many1!(one_of!(" \t\n")));
 
 named!(symbol<String>,
-    chain!(
-        head: map_res!(alpha, from_utf8) ~
+    do_parse!(
+        head: map_res!(alpha, from_utf8) >>
         tail: many0!(
                 map_res!(
                     alt!(alphanumeric | tag!("_") | tag!("-")),
-                    from_utf8)),
-        || {
-            tail.iter().fold(head.to_string(), |mut acc, slice| {
-                acc.push_str(slice);
-                acc
-            })
-        }
-    ));
+                    from_utf8)) >>
+        (tail.iter().fold(head.to_string(), |mut acc, slice| {
+            acc.push_str(slice);
+            acc
+        })
+    )
+));
 
 /**
  * A comma (potentially) surrounded by whitespace
  */
-named!(comma<()>, chain!(whitespace0 ~ char!(',') ~ whitespace0, || {()}));
+named!(comma<char>, ws!(char!(',')));
 
 macro_rules! named_object {
     ($i:expr, $name:expr, $submac:ident!( $($args:tt)* )) => (
@@ -109,33 +121,34 @@ macro_rules! named_object {
  */
 named!(digit_string<&str>, map_res!(digit, from_utf8));
 
+fn to_real(sign: Option<char>, integral: &str, fraction: Option<&str>) -> f64 {
+    let s = match sign {
+        Some('+') | None => 1.0,
+        Some('-') => -1.0,
+        Some(c) => panic!("Unexpected sign char: {:?}", c)
+    };
+
+    let i = integral.parse::<i64>().unwrap() as f64;
+    let f = match fraction {
+        None => 0.0,
+        Some(digits) => {
+            let val = digits.parse::<i64>().unwrap() as f64;
+            let scale = (10.0 as f64).powi(digits.len() as i32);
+            val / scale
+        }
+    };
+    (s * (i + f))
+}
+
 /**
  * Parses a real number represented as a decimal fraction (as opposed to one in
  * exponential notation)
  */
-named!(real_number<f64>,
-    chain!(
-        sign: alt!(char!('-') | char!('+'))? ~
-        integral: digit_string ~
-        fraction: complete!(preceded!(tag!("."), digit_string))?,
-        || {
-            let s = match sign {
-                Some('+') | None => 1.0,
-                Some('-') => -1.0,
-                Some(c) => panic!("Unexpected sign char: {:?}", c)
-            };
-
-            let i = integral.parse::<i64>().unwrap() as f64;
-            let f = match fraction {
-                None => 0.0,
-                Some(digits) => {
-                    let val = digits.parse::<i64>().unwrap() as f64;
-                    let scale = (10.0 as f64).powi(digits.len() as i32);
-                    val / scale
-                }
-            };
-            (s * (i + f))
-        }
+named!(real_number <f64>, do_parse!(
+        sign: opt!(alt!(char!('-') | char!('+')))                     >>
+        integral: digit_string                                        >>
+        fraction: opt!(complete!(preceded!(tag!("."), digit_string))) >>
+        ( to_real(sign, integral, fraction) )
     )
 );
 
@@ -147,20 +160,18 @@ fn declaration<'a, T, StoreFn, ParserFn>(
     where
         StoreFn : FnMut(&'a [u8], &str, T) -> IResult<&'a [u8], ()>,
         ParserFn : Fn(&'a [u8]) -> IResult<&'a [u8], T> {
-    let result = chain!(i,
-                        tag!("let") ~ whitespace1 ~
-                        name: symbol ~ whitespace1 ~
-                        tag!("=") ~ whitespace1 ~
-                        value: named_object!(typename, call!(parser)),
-                        || { (name, value) });
-    match result {
+    let parse_result = do_parse!(i,
+            ws!(tag!("let")) >> name: ws!(symbol) >>
+            ws!(char!('=')) >> value: named_object!(typename, call!(parser)) >>
+            (name, value));
+    match parse_result {
         IResult::Done(i, (name, value)) => storefn(i, &name, value),
         IResult::Error(e) => IResult::Error(e),
         IResult::Incomplete(x) => IResult::Incomplete(x),
     }
 }
 
-fn named_value<'a, T, ParserFn, StoreFn>(i: &'a [u8],
+fn named_value<'a, T, ParserFn, StoreFn>(input: &'a [u8],
                                          name: &str,
                                          parser: ParserFn,
                                          mut storefn: StoreFn)
@@ -168,11 +179,10 @@ fn named_value<'a, T, ParserFn, StoreFn>(i: &'a [u8],
     where
         StoreFn : FnMut(T) -> (),
         ParserFn : Fn(&'a [u8]) -> IResult<&'a [u8], T> {
-    let result = chain!(i, tag!(name) ~ whitespace0 ~
-                        char!(':') ~ whitespace0 ~
-                        value: call!(parser),
-                        || { value } );
-
+    let result = do_parse!(
+            input,
+            ws!(tag!(name)) >> ws!(char!(':')) >> value: ws!(call!(parser)) >>
+            (value));
     match result {
         IResult::Done(i, value) => {
             storefn(value);
@@ -191,13 +201,12 @@ fn named_value<'a, T, ParserFn, StoreFn>(i: &'a [u8],
  * A colour literal of the form {r, g, b}
  */
 named!(colour_literal<Colour>, block!(
-    chain!(
-        rr: real_number ~
-        comma ~
-        gg: real_number ~
-        comma ~
-        bb: real_number,
-        || { Colour::new(rr, gg, bb) })
+    do_parse!(rr: real_number >>
+              comma >>
+              gg: real_number >>
+              comma >>
+              bb: real_number >>
+              (Colour::new(rr, gg, bb)))
 ));
 
 fn colour_declaration<'a>(input: &'a [u8], scene: &mut SceneState) ->
@@ -206,7 +215,7 @@ fn colour_declaration<'a>(input: &'a [u8], scene: &mut SceneState) ->
                 |i, name, value| {
                     let already_exists = scene.colours.contains_key(name);
                     if already_exists {
-                        IResult::Error(Err::Code(ErrorKind::Custom(99)))
+                        IResult::Error(ErrorKind::Custom(99))
                     } else {
                         scene.colours.insert(String::from(name), value);
                         IResult::Done(i, ())
@@ -216,8 +225,8 @@ fn colour_declaration<'a>(input: &'a [u8], scene: &mut SceneState) ->
 
 fn colour_reference<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Colour> {
     map_opt!(input,
-             call!(symbol),
-             |name| { scene.colours.get(&name).map(|c| *c) })
+        call!(symbol),
+        |name| { scene.colours.get(&name).map(|c| *c) })
 }
 
 fn colour<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Colour> {
@@ -233,36 +242,121 @@ fn colour<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Colour> 
  * A vector literal of the form {x, y, z}
  */
 named!(vector_literal<Vector>, block!(
-    chain!(
-        xx: real_number ~
-        comma ~
-        yy: real_number ~
-        comma ~
-        zz: real_number,
-        || { Vector::new(xx, yy, zz) })
-    ));
+    do_parse!(
+        xx: real_number >>
+        comma >>
+        yy: real_number >>
+        comma >>
+        zz: real_number >>
+        ( Vector::new(xx, yy, zz) ))
+));
 
 fn sphere<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<Sphere>> {
-    let mut result = Sphere::new(Point::default(), 1.0);
-    let mut rval : IResult<&'a [u8], Vec<()>>;
+    let mut result = Box::new(Sphere::default());
 
-    /* An artifical scope to un-borrow `result` */ {
-        let mut sphere_option = |i| {
-            alt!(i,
-                call!(named_value, "radius", real_number, |r| { result.radius = r; }) |
-                call!(named_value, "centre", vector_literal, |c| { result.centre = c; })
+    let rval = {
+        named_object!(input, "sphere",
+            block!(separated_list!(comma,
+                alt!(
+                    call!(named_value, "radius", real_number, |r| {result.radius = r;}) |
+                    call!(named_value, "centre", vector_literal, |c| {result.centre = c;})
+                )
             )
-        };
-
-        rval = named_object!(input, "sphere",
-            block!(separated_list!(comma, sphere_option)));
-    }
+        ))
+    };
 
     match rval {
         IResult::Done(i, _) => IResult::Done(i, result),
         IResult::Error(e) => IResult::Error(e),
         IResult::Incomplete(x) => IResult::Incomplete(x)
     }
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// lights
+// ////////////////////////////////////////////////////////////////////////////
+
+fn point_light<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<PointLight>> {
+    let mut result = Box::new(PointLight::default());
+
+    let lookup_colour = |i| { colour(i, scene) };
+
+    let rval = {
+        named_object!(input, "point_light",
+            block!(separated_list!(comma,
+                alt!(
+                    call!(named_value, "colour", |i|{colour(i,scene)}, |c| { result.colour = c;}) |
+                    call!(named_value, "location", vector_literal, |p| { result.loc = p; })
+                )
+            )))
+    };
+
+    match rval {
+        IResult::Done(i, _) => IResult::Done(i, result),
+        IResult::Error(e) => IResult::Error(e),
+        IResult::Incomplete(x) => IResult::Incomplete(x)
+    }
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// top level scene file
+// ////////////////////////////////////////////////////////////////////////////
+
+fn primitive<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Primitive>> {
+    //alt!(input, call!(sphere, state))
+    map!(input, call!(sphere, state), |s| {s as Box<Primitive>})
+}
+
+fn light<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Light>> {
+    //alt!(input, call!(point_light, state))
+    map!(input, call!(point_light, state), |p| {p as Box<Light>})
+}
+
+fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
+    let mut state = SceneState::new();
+
+    let rval = many0!(input, alt!(
+        call!(colour_declaration, &mut state) |
+        map!(call!(primitive, &state), |p| { state.scene.add_object(p); }) |
+        map!(call!(light, &state), |l| { state.scene.add_light(l); })
+    ));
+
+    match rval {
+        IResult::Done(i, _) => IResult::Done(i, state.scene),
+        IResult::Error(e) => IResult::Error(e),
+        IResult::Incomplete(x) => IResult::Incomplete(x)
+    }
+}
+
+fn to_io_error<E>(error: E) -> io::Error
+    where E: Into<Box<Error + Send + Sync>>
+{
+    io::Error::new(io::ErrorKind::Other, error)
+}
+
+
+fn scene_template(source: &str) -> Result<Scene> {
+    use liquid::{self, Context, LiquidOptions, Renderable};
+
+    let template = liquid::parse(source, LiquidOptions::default())
+        .map_err(to_io_error)?;
+    let mut ctx = Context::new();
+    let scene_text = template.render(&mut ctx);
+
+    match scene_file(source.as_bytes()) {
+        IResult::Done(_, s) => Ok(s),
+        IResult::Error(error_kind) => Err(io::Error::new(
+            io::ErrorKind::Other, error_kind.description())),
+        IResult::Incomplete(_) => Err(io::Error::new(
+            io::ErrorKind::Other, "incomplete?"))
+    }
+}
+
+fn load_scene<P: AsRef<Path>>(filename: P) -> Result<Scene> {
+    let mut f = File::open(filename)?;
+    let mut source = String::new();
+    f.read_to_string(&mut source)?;
+    scene_template(&source)
 }
 
 #[cfg(test)]
@@ -405,7 +499,7 @@ mod test {
 
         assert_eq!(colour_reference(b"orange", &state), IResult::Done(&b""[..], orange));
         assert!(colour_reference(b"puce", &state).is_err());
-        assert!(colour_reference(b"", &state).is_err());
+        assert!(colour_reference(b"", &state).is_incomplete());
     }
 
     #[test]
@@ -437,9 +531,7 @@ mod test {
         use primitive::Sphere;
         use nom::IResult;
 
-        let orange = Colour::new(1.0, 0.5, 0.0);
-        let mut state = SceneState::new();
-        state.colours.insert(String::from("orange"), orange);
+        let state = SceneState::new();
 
         match sphere(b"sphere { radius: 1.2340, centre: {1, 2, 3} }", &state) {
             IResult::Done(_, s) => {
@@ -449,4 +541,45 @@ mod test {
             IResult::Error(_) | IResult::Incomplete(_) => assert!(false)
         }
     }
+
+    // ////////////////////////////////////////////////////////////////////////
+    //
+    // ////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_point_light() {
+        use super::{SceneState, point_light};
+        use colour::Colour;
+        use math::point;
+        use light::PointLight;
+        use nom::IResult;
+
+        let fucsia = Colour::new(1.0, 0.0, 1.0);
+        let mut state = SceneState::new();
+        state.colours.insert(String::from("fucsia"), fucsia);
+
+        match point_light(b"point_light { colour: fucsia, location: {1, 2, 3} }", &state) {
+            IResult::Done(_, l) => {
+                assert_eq!(l.colour, fucsia);
+                assert_eq!(l.loc, point(1.0, 2.0, 3.0));
+            },
+            IResult::Error(_) | IResult::Incomplete(_) => assert!(false)
+        }
+
+        match point_light(b"point_light { colour: {0.3, 0.4, 0.5}, location: {1, 2, 3} }", &state) {
+            IResult::Done(_, l) => {
+                assert_eq!(l.colour, Colour::new(0.3, 0.4, 0.5));
+                assert_eq!(l.loc, point(1.0, 2.0, 3.0));
+            },
+            IResult::Error(_) | IResult::Incomplete(_) => assert!(false)
+        }
+    }
+
+    #[test]
+    fn scene_template() {
+        super::load_scene("Hello");
+    }
+
+    #[test]
+    fn scene_file() { super::load_scene("scenes/example.rg"); }
 }
