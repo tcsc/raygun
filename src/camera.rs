@@ -72,7 +72,7 @@ impl Camera {
     }
 }
 
-struct Projection {
+pub struct Projection {
     topleft: Point,
     dx: Vector,
     dy: Vector,
