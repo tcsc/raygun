@@ -217,6 +217,7 @@ fn colour_declaration<'a>(input: &'a [u8], scene: &mut SceneState) ->
                     if already_exists {
                         IResult::Error(ErrorKind::Custom(99))
                     } else {
+                        debug!("new colour {}", name);
                         scene.colours.insert(String::from(name), value);
                         IResult::Done(i, ())
                     }
@@ -266,7 +267,10 @@ fn sphere<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<Sphe
     };
 
     match rval {
-        IResult::Done(i, _) => IResult::Done(i, result),
+        IResult::Done(i, _) => {
+            debug!("{:?}", result);
+            IResult::Done(i, result)
+        },
         IResult::Error(e) => IResult::Error(e),
         IResult::Incomplete(x) => IResult::Incomplete(x)
     }
@@ -314,17 +318,23 @@ fn light<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Light
 
 fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
     let mut state = SceneState::new();
+    let mut text = input;
+    loop {
+        if text.is_empty() {
+            return IResult::Done(text, state.scene)
+        }
 
-    let rval = many0!(input, alt!(
-        call!(colour_declaration, &mut state) |
-        map!(call!(primitive, &state), |p| { state.scene.add_object(p); }) |
-        map!(call!(light, &state), |l| { state.scene.add_light(l); })
-    ));
+        let rval = ws!(text, alt!(
+            call!(colour_declaration, &mut state) |
+            map!(call!(primitive, &state), |p| { state.scene.add_object(p); }) |
+            map!(call!(light, &state), |l| { state.scene.add_light(l); })
+        ));
 
-    match rval {
-        IResult::Done(i, _) => IResult::Done(i, state.scene),
-        IResult::Error(e) => IResult::Error(e),
-        IResult::Incomplete(x) => IResult::Incomplete(x)
+        match rval {
+            IResult::Done(i, _) => (text = i),
+            IResult::Error(e) => return IResult::Error(e),
+            IResult::Incomplete(x) => return IResult::Incomplete(x)
+        }
     }
 }
 
@@ -334,25 +344,39 @@ fn to_io_error<E>(error: E) -> io::Error
     io::Error::new(io::ErrorKind::Other, error)
 }
 
-
 fn scene_template(source: &str) -> Result<Scene> {
     use liquid::{self, Context, LiquidOptions, Renderable};
 
+    debug!("Compiling scene template...");
     let template = liquid::parse(source, LiquidOptions::default())
         .map_err(to_io_error)?;
     let mut ctx = Context::new();
-    let scene_text = template.render(&mut ctx);
 
-    match scene_file(source.as_bytes()) {
-        IResult::Done(_, s) => Ok(s),
-        IResult::Error(error_kind) => Err(io::Error::new(
-            io::ErrorKind::Other, error_kind.description())),
-        IResult::Incomplete(_) => Err(io::Error::new(
-            io::ErrorKind::Other, "incomplete?"))
+    debug!("Rendering template...");
+    let scene_text = template.render(&mut ctx)
+                             .map_err(to_io_error)?
+                             .unwrap();
+
+    match scene_file(scene_text.as_bytes()) {
+        IResult::Done(_, s) => {
+            info!("Scene loaded");
+            Ok(s)
+        },
+        IResult::Error(error_kind) => {
+            error!("Scene load failed: {:?}", error_kind);
+            Err(io::Error::new(
+                io::ErrorKind::Other, error_kind.description()))
+        },
+        IResult::Incomplete(_) => {
+            info!("Scene incomplete!");
+            Err(io::Error::new(
+                io::ErrorKind::Other, "incomplete?"))
+        }
     }
 }
 
-fn load_scene<P: AsRef<Path>>(filename: P) -> Result<Scene> {
+pub fn load_scene<P: AsRef<Path>>(filename: P) -> Result<Scene> {
+    info!("Loading scene from {:?}...", filename.as_ref());
     let mut f = File::open(filename)?;
     let mut source = String::new();
     f.read_to_string(&mut source)?;
