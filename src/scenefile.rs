@@ -11,7 +11,7 @@ use std::error::Error;
 
 use colour::Colour;
 use math::{Point, Vector, vector};
-use primitive::{Primitive, Sphere};
+use primitive::{self, Primitive, Sphere, Box as _Box};
 use light::{Light, PointLight};
 
 use scene::Scene;
@@ -276,6 +276,30 @@ fn sphere<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<Sphe
     }
 }
 
+fn _box<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<_Box>> {
+    let mut result = Box::new(_Box::default());
+
+    let rval = {
+        named_object!(input, "box",
+            block!(separated_list!(comma,
+                alt!(
+                    call!(named_value, "upper", vector_literal, |u| { result.upper = u;}) |
+                    call!(named_value, "lower", vector_literal, |l| { result.lower = l;})
+                )
+            ))
+        )
+    };
+
+    match rval {
+        IResult::Done(i, _) => {
+            debug!("{:?}", result);
+            IResult::Done(i, result)
+        },
+        IResult::Error(e) => IResult::Error(e),
+        IResult::Incomplete(x) => IResult::Incomplete(x)
+    }
+}
+
 // ////////////////////////////////////////////////////////////////////////////
 // lights
 // ////////////////////////////////////////////////////////////////////////////
@@ -307,8 +331,9 @@ fn point_light<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box
 // ////////////////////////////////////////////////////////////////////////////
 
 fn primitive<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Primitive>> {
-    //alt!(input, call!(sphere, state))
-    map!(input, call!(sphere, state), |s| {s as Box<Primitive>})
+    alt!(input,
+        map!(call!(sphere, state), |s| {s as Box<Primitive>}) |
+        map!(call!(_box, state), |b| {b as Box<Primitive>}) )
 }
 
 fn light<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Light>> {

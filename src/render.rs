@@ -148,6 +148,8 @@ fn is_shadowed(light_ray: Ray, light_distance: f64, scene: &Scene) -> bool {
 fn trace(r: Ray, scene: &Scene) -> Colour {
     // loop {
         if let Some(ix) = closest_intersecting_object(r, scene) {
+            debug!("Intersection with {:?}", ix.obj);
+
             let surface_point = r.extend(ix.dist);
             let surface_normal = ix.obj.normal(surface_point);
             let surface_colour = colour::WHITE;

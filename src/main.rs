@@ -46,6 +46,7 @@ fn main() {
         height: args.height
     };
 
+    info!("Starting render...");
     if let Some(img) = render::render(&s, options) {
         info!("Saving to {:?}...", args.output_file);
         match img.save(args.output_file) {
@@ -114,7 +115,7 @@ fn make_scene() -> Scene {
 	let objs : Vec<Box<primitive::Primitive>> =
 		(0..20).map(|n| n as f64)
 			   .map(|n| Sphere::new(point((n - 10.0)*1.25, 0.0, (n - 10.0)*4.0), 1.0))
-			   .map(|s| s as Box<primitive::Primitive>)
+			   .map(|s| Box::new(s) as Box<primitive::Primitive>)
 			   .collect();
 
 	sc.add_objects(objs);

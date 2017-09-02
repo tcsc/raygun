@@ -22,7 +22,7 @@ impl Ray {
 
 	/// Calculates the point `len` units along the ray
 	pub fn extend(&self, len: f64) -> Point {
-		self.src + (self.dir * len)
+        self.src + (self.dir * len)
 	}
 }
 

@@ -13,8 +13,8 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(loc: Point, radius: f64) -> Box<Sphere> {
-        Box::new(Sphere{ centre: loc, radius: radius })
+    pub fn new(loc: Point, radius: f64) -> Sphere {
+        Sphere{ centre: loc, radius: radius }
     }
 }
 

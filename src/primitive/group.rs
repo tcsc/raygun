@@ -2,6 +2,7 @@ use math::{Matrix, Point, Vector, IDENTITY};
 use primitive::Primitive;
 use ray::Ray;
 
+#[derive(Debug)]
 pub struct Group {
     transform: Matrix,
     children: Vec<Box<Primitive>>
