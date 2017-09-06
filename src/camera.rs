@@ -3,11 +3,12 @@ use ray::Ray;
 use units::{Angle, Radians, degrees};
 
 pub struct Camera {
-    loc:  Point,
-    dir:  Vector,
-    up:   Vector,
-    hfov: Angle<Radians>,
-    vfov: Angle<Radians>
+    pub loc:  Point,
+    pub dir:  Vector,
+    pub up:   Vector,
+    pub right: Vector,
+    pub hfov: Angle<Radians>,
+    pub vfov: Angle<Radians>
 }
 
 impl Default for Camera {
@@ -20,6 +21,7 @@ impl Default for Camera {
             loc: point( 0.0, 0.0, 0.0),
             dir: vector(0.0, 0.0, 1.0),
             up:  vector(0.0, 1.0, 0.0),
+            right: vector(1.0, 0.0, 0.0),
             hfov: degrees(39.0).radians(),
             vfov: degrees(27.0).radians()
         }
@@ -31,11 +33,7 @@ impl Camera {
         Camera{ loc: point(x, y, z), .. *self }
     }
 
-    pub fn loc(&self) -> Point {
-        self.loc
-    }
-
-    pub fn dir(&self, x: f64, y: f64, z: f64) -> Camera {
+    pub fn with_dir(&self, x: f64, y: f64, z: f64) -> Camera {
         Camera{ dir: vector(x, y, z), .. *self }
     }
 
@@ -99,25 +97,25 @@ mod test {
         let p = c.projector(640, 480);
 
         let topleft = p.ray_for(0,0);
-        assert_eq!(topleft.src, c.loc());
+        assert_eq!(topleft.src, c.loc);
         assert!(topleft.dir.x < 0.0);
         assert!(topleft.dir.y > 0.0);
         assert!(topleft.dir.z < 1.0);
 
         let topright = p.ray_for(639,0);
-        assert_eq!(topright.src, c.loc());
+        assert_eq!(topright.src, c.loc);
         assert!(topright.dir.x > 0.0);
         assert!(topright.dir.y > 0.0);
         assert!(topright.dir.z < 1.0);
 
         let bottomleft = p.ray_for(0,479);
-        assert_eq!(bottomleft.src, c.loc());
+        assert_eq!(bottomleft.src, c.loc);
         assert!(bottomleft.dir.x < 0.0);
         assert!(bottomleft.dir.y < 0.0);
         assert!(bottomleft.dir.z < 1.0);
 
         let bottomright = p.ray_for(639, 479);
-        assert_eq!(bottomright.src, c.loc());
+        assert_eq!(bottomright.src, c.loc);
         assert!(bottomright.dir.x > 0.0);
         assert!(bottomright.dir.y < 0.0);
         assert!(bottomright.dir.z < 1.0);

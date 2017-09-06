@@ -27,15 +27,6 @@ impl Default for Box {
     }
 }
 
-#[inline]
-fn sort<T: PartialOrd>(a: T, b: T) -> (T, T) {
-    if a < b {
-        (a, b)
-    } else {
-        (b, a)
-    }
-}
-
 impl Primitive for Box {
     fn intersects(&self, r: Ray) -> Option<f64> {
 
@@ -65,6 +56,17 @@ impl Primitive for Box {
             None
         }
         else {
+            use std::panic;
+            let pt = r.extend(t_min);
+            if panic::catch_unwind(|| self.normal(pt)).is_err() {
+                error!("Box:       {:?}", self);
+                error!("Ray src:   {:?}, dir: {:?}", r.src, r.dir);
+                error!("Point:     {:?}", pt);
+                error!("Point Max: {:?}", r.extend(t_max));
+                error!("tmax:      {}", t_max);
+                error!("tmin:      {}", t_min);
+            };
+
             Some(t_min)
         }
     }
@@ -78,7 +80,7 @@ impl Primitive for Box {
         else if (pt.x - self.upper.x).abs() < EPSILON { POS_X }
         else if (pt.y - self.lower.y).abs() < EPSILON { NEG_Y }
         else if (pt.y - self.upper.y).abs() < EPSILON { POS_Y }
-        else if (pt.z - self.lower.y).abs() < EPSILON { NEG_Z }
+        else if (pt.z - self.lower.z).abs() < EPSILON { NEG_Z }
         else if (pt.z - self.upper.z).abs() < EPSILON { POS_Z }
         else { panic!("Point not on box: {:?}", pt) }
     }

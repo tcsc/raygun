@@ -6,10 +6,10 @@ use std::marker::PhantomData;
 // Unit tags
 // ----------------------------------------------------------------------------
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Degrees {}
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Radians {}
 
 // ----------------------------------------------------------------------------
@@ -51,6 +51,11 @@ impl Angle<Radians> {
     pub fn tan(self) -> f64 { self.get().tan() }
 }
 
+impl<U> cmp::PartialEq for Angle<U> {
+    fn eq(&self, other: &Angle<U>) -> bool {
+        self.get() == other.get()
+    }
+}
 
 impl<U> ops::Add for Angle<U> {
     type Output = Angle<U>;

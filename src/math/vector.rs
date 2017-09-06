@@ -33,7 +33,6 @@ impl Vector {
         vector(x, y, z)
     }
 
-
     pub fn cross(&self, other: Vector) -> Vector {
         let x = (self.y * other.z) - (self.z * other.y);
         let y = (self.z * other.x) - (self.x * other.z);

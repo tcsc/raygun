@@ -1,6 +1,8 @@
+#[macro_use] mod constructs;
+mod camera;
+
 use std::f64;
 use std::any::Any;
-use std::collections::HashMap;
 use std::str::{FromStr, from_utf8};
 use std::io::prelude::*;
 use std::io::{self, Result};
@@ -10,68 +12,22 @@ use std::convert::From;
 use std::error::Error;
 
 use colour::Colour;
-use math::{Point, Vector, vector};
+use math::{Point, point, Vector, vector};
 use primitive::{self, Primitive, Sphere, Box as _Box};
+use camera::Camera;
 use light::{Light, PointLight};
+use units::{degrees, Degrees};
 
 use scene::Scene;
 
 use nom::{multispace, digit, alpha, alphanumeric, IResult, Err, ErrorKind};
 
-// ////////////////////////////////////////////////////////////////////////////
-// State data
-// ////////////////////////////////////////////////////////////////////////////
-
-/**
- * Hold the state of the scene as it is being parsed
- */
-struct SceneState {
-    colours: HashMap<String, Colour>,
-    scene: Scene
-}
-
-impl SceneState {
-    fn new() -> SceneState {
-        SceneState {
-            colours: HashMap::new(),
-            scene: Scene::new()
-        }
-    }
-}
+use self::camera::*;
+use self::constructs::*;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Parsing tools
 // ////////////////////////////////////////////////////////////////////////////
-
-//fn block<'a, T>(input: &'a[u8], p: Parser) -> IResult<&[u8], T>
-//    where
-//        Parser: Fn(&'a[u8]) -> IResult<&'a[u8], T>
-//{
-//    ws!(delimited!(input, char!('{'), call!(p), char!('}')))
-//}
-
-/**
- * A brace-delimited block
- */
-macro_rules! block {
-    ($i:expr, $submac:ident!( $($args:tt)* )) => (
-        delimited!(
-            $i,
-            preceded!(char!('{'), whitespace0),
-            $submac!($($args)*),
-            preceded!(whitespace0, char!('}'))
-        )
-    );
-
-    ($i:expr, $f:expr) => (
-        delimited!(
-            $i,
-            preceded!(char!('{'), whitespace0),
-            call!($f),
-            preceded!(whitespace0, char!('}'))
-        )
-    );
-}
 
 /**
  * A possibly-empty whitespace string
@@ -97,66 +53,11 @@ named!(symbol<String>,
     )
 ));
 
-/**
- * A comma (potentially) surrounded by whitespace
- */
-named!(comma<char>, ws!(char!(',')));
-
-macro_rules! named_object {
-    ($i:expr, $name:expr, $submac:ident!( $($args:tt)* )) => (
-        preceded!($i, preceded!(tag!($name), whitespace0), $submac!($($args)*))
-    );
-
-    ($i:expr, $name:expr, $f:expr) => (
-        preceded!($i, preceded!(tag!($name), whitespace0), call!($f))
-    );
-}
-
-// ////////////////////////////////////////////////////////////////////////////
-// Parsing numbers
-// ////////////////////////////////////////////////////////////////////////////
-
-/**
- * A string of 0-9 digts.
- */
-named!(digit_string<&str>, map_res!(digit, from_utf8));
-
-fn to_real(sign: Option<char>, integral: &str, fraction: Option<&str>) -> f64 {
-    let s = match sign {
-        Some('+') | None => 1.0,
-        Some('-') => -1.0,
-        Some(c) => panic!("Unexpected sign char: {:?}", c)
-    };
-
-    let i = integral.parse::<i64>().unwrap() as f64;
-    let f = match fraction {
-        None => 0.0,
-        Some(digits) => {
-            let val = digits.parse::<i64>().unwrap() as f64;
-            let scale = (10.0 as f64).powi(digits.len() as i32);
-            val / scale
-        }
-    };
-    (s * (i + f))
-}
-
-/**
- * Parses a real number represented as a decimal fraction (as opposed to one in
- * exponential notation)
- */
-named!(real_number <f64>, do_parse!(
-        sign: opt!(alt!(char!('-') | char!('+')))                     >>
-        integral: digit_string                                        >>
-        fraction: opt!(complete!(preceded!(tag!("."), digit_string))) >>
-        ( to_real(sign, integral, fraction) )
-    )
-);
-
 fn declaration<'a, T, StoreFn, ParserFn>(
-        i: &'a [u8],
-        typename: &str,
-        parser: ParserFn,
-        mut storefn: StoreFn) -> IResult<&'a [u8], ()>
+    i: &'a [u8],
+    typename: &str,
+    parser: ParserFn,
+    mut storefn: StoreFn) -> IResult<&'a [u8], ()>
     where
         StoreFn : FnMut(&'a [u8], &str, T) -> IResult<&'a [u8], ()>,
         ParserFn : Fn(&'a [u8]) -> IResult<&'a [u8], T> {
@@ -171,27 +72,6 @@ fn declaration<'a, T, StoreFn, ParserFn>(
     }
 }
 
-fn named_value<'a, T, ParserFn, StoreFn>(input: &'a [u8],
-                                         name: &str,
-                                         parser: ParserFn,
-                                         mut storefn: StoreFn)
-        -> IResult<&'a [u8], ()>
-    where
-        StoreFn : FnMut(T) -> (),
-        ParserFn : Fn(&'a [u8]) -> IResult<&'a [u8], T> {
-    let result = do_parse!(
-            input,
-            ws!(tag!(name)) >> ws!(char!(':')) >> value: ws!(call!(parser)) >>
-            (value));
-    match result {
-        IResult::Done(i, value) => {
-            storefn(value);
-            IResult::Done(i, ())
-        },
-        IResult::Error(e) => IResult::Error(e),
-        IResult::Incomplete(x) => IResult::Incomplete(x)
-    }
-}
 
 // ////////////////////////////////////////////////////////////////////////////
 // Colours
@@ -210,7 +90,7 @@ named!(colour_literal<Colour>, block!(
 ));
 
 fn colour_declaration<'a>(input: &'a [u8], scene: &mut SceneState) ->
-        IResult<&'a [u8], ()> {
+IResult<&'a [u8], ()> {
     declaration(input, "colour", colour_literal,
                 |i, name, value| {
                     let already_exists = scene.colours.contains_key(name);
@@ -239,18 +119,6 @@ fn colour<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Colour> 
 // Primitives
 // ////////////////////////////////////////////////////////////////////////////
 
-/**
- * A vector literal of the form {x, y, z}
- */
-named!(vector_literal<Vector>, block!(
-    do_parse!(
-        xx: real_number >>
-        comma >>
-        yy: real_number >>
-        comma >>
-        zz: real_number >>
-        ( Vector::new(xx, yy, zz) ))
-));
 
 fn sphere<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<Sphere>> {
     let mut result = Box::new(Sphere::default());
@@ -342,7 +210,7 @@ fn light<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Light
 }
 
 fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
-    let mut state = SceneState::new();
+    let mut state = SceneState::default();
     let mut text = input;
     loop {
         if text.is_empty() {
@@ -379,8 +247,8 @@ fn scene_template(source: &str) -> Result<Scene> {
 
     debug!("Rendering template...");
     let scene_text = template.render(&mut ctx)
-                             .map_err(to_io_error)?
-                             .unwrap();
+        .map_err(to_io_error)?
+        .unwrap();
 
     match scene_file(scene_text.as_bytes()) {
         IResult::Done(_, s) => {
@@ -410,6 +278,7 @@ pub fn load_scene<P: AsRef<Path>>(filename: P) -> Result<Scene> {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use nom;
 
     // ////////////////////////////////////////////////////////////////////////
@@ -418,7 +287,6 @@ mod test {
 
     #[test]
     fn parse_digit_string() {
-        use super::digit_string;
         use nom::IResult;
 
         assert!(!digit_string(b"").is_done(), "Empty string");
@@ -429,14 +297,13 @@ mod test {
 
     #[test]
     fn parse_symbol() {
-        use super::symbol;
         use nom::IResult;
 
         assert!(!symbol(b"").is_done(), "Empty string");
         assert!(!symbol(b"0bcd").is_done(), "Leading digit");
 
         assert_eq!(symbol(b"some_symbol"), IResult::Done(&b""[..],
-                   String::from("some_symbol")));
+                                                         String::from("some_symbol")));
 
         assert_eq!(symbol(b"symbol_with_d1g8s"),
                    IResult::Done(&b""[..], String::from("symbol_with_d1g8s")));
@@ -448,7 +315,6 @@ mod test {
     #[test]
     fn parse_float() {
         use nom::IResult;
-        use super::real_number;
 
         assert!(real_number(b"").is_incomplete(), "Empty string");
         assert_eq!(real_number(b"163"), IResult::Done(&b""[..], 163.0));
@@ -468,7 +334,6 @@ mod test {
     #[test]
     fn parse_vector_literal() {
         use math::vector;
-        use super::vector_literal;
         use nom::IResult;
 
         let v = vector(1.0, 0.5, 0.0);
@@ -500,7 +365,6 @@ mod test {
     #[test]
     fn parse_colour_literal() {
         use colour::Colour;
-        use super::colour_literal;
         use nom::IResult;
 
         let c = Colour {r: 1.0, g: 0.5, b: 0.0};
@@ -514,11 +378,10 @@ mod test {
     #[test]
     fn parse_colour_declaration() {
         use colour::Colour;
-        use super::{colour_declaration, SceneState};
         use nom::IResult;
 
         let orange = Colour::new(1.0, 0.5, 0.0);
-        let mut state = SceneState::new();
+        let mut state = SceneState::default();
         assert_eq!(colour_declaration(b"let orange = colour {1, 0.5, 0}", &mut state),
                    IResult::Done(&b""[..], ()));
         assert!(state.colours.get("orange").unwrap().approx_eq(orange));
@@ -529,7 +392,7 @@ mod test {
 
         // something other than a colour is not allowed
         assert!(colour_declaration(b"let orange = material {1, 2, 3}",
-                &mut state).is_err());
+                                   &mut state).is_err());
 
         // a malformed colour is not allowed
         assert!(colour_declaration(b"let orange = colour {}",
@@ -539,11 +402,10 @@ mod test {
     #[test]
     fn parse_colour_reference() {
         use colour::Colour;
-        use super::{colour_reference, SceneState};
         use nom::IResult;
 
         let orange = Colour::new(1.0, 0.5, 0.0);
-        let mut state = SceneState::new();
+        let mut state = SceneState::default();
         state.colours.insert(String::from("orange"), orange);
 
         assert_eq!(colour_reference(b"orange", &state), IResult::Done(&b""[..], orange));
@@ -554,13 +416,12 @@ mod test {
     #[test]
     fn parse_colour() {
         use colour::Colour;
-        use super::{colour, SceneState};
         use nom::IResult;
 
         let orange = Colour::new(1.0, 0.5, 0.0);
         let red = Colour::new(1.0, 0.0, 0.0);
 
-        let mut state = SceneState::new();
+        let mut state = SceneState::default();
         state.colours.insert(String::from("orange"), orange);
 
         assert_eq!(colour(b"orange", &state), IResult::Done(&b""[..], orange));
@@ -574,13 +435,12 @@ mod test {
 
     #[test]
     fn parse_sphere() {
-        use super::{SceneState, sphere};
         use colour::Colour;
         use math::point;
         use primitive::Sphere;
         use nom::IResult;
 
-        let state = SceneState::new();
+        let state = SceneState::default();
 
         match sphere(b"sphere { radius: 1.2340, centre: {1, 2, 3} }", &state) {
             IResult::Done(_, s) => {
@@ -597,14 +457,13 @@ mod test {
 
     #[test]
     fn parse_point_light() {
-        use super::{SceneState, point_light};
         use colour::Colour;
         use math::point;
         use light::PointLight;
         use nom::IResult;
 
         let fucsia = Colour::new(1.0, 0.0, 1.0);
-        let mut state = SceneState::new();
+        let mut state = SceneState::default();
         state.colours.insert(String::from("fucsia"), fucsia);
 
         match point_light(b"point_light { colour: fucsia, location: {1, 2, 3} }", &state) {

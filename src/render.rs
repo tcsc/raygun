@@ -148,8 +148,6 @@ fn is_shadowed(light_ray: Ray, light_distance: f64, scene: &Scene) -> bool {
 fn trace(r: Ray, scene: &Scene) -> Colour {
     // loop {
         if let Some(ix) = closest_intersecting_object(r, scene) {
-            debug!("Intersection with {:?}", ix.obj);
-
             let surface_point = r.extend(ix.dist);
             let surface_normal = ix.obj.normal(surface_point);
             let surface_colour = colour::WHITE;
@@ -178,8 +176,8 @@ mod test {
     fn test_scene() -> Scene {
         let mut s = Scene::new();
         s.add_objects(vec!(
-            Sphere::new(point(0.0, 0.0, 0.0), 1.0),
-            Sphere::new(point(0.0, 0.0, 1.0), 1.0)
+            Box::new(Sphere::new(point(0.0, 0.0, 0.0), 1.0)),
+            Box::new(Sphere::new(point(0.0, 0.0, 1.0), 1.0))
         ));
         s
     }
@@ -228,7 +226,7 @@ mod test {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
         s.add_point_light(light_loc, colour::WHITE);
-        s.add_object(Sphere::new(point(90.0, 90.0, 90.0), 2.0));
+        s.add_object(Box::new(Sphere::new(point(90.0, 90.0, 90.0), 2.0)));
 
         let surface_pt = point(0.0, 0.0, 0.0);
         let light_beam = Vector::between(surface_pt, light_loc);
@@ -242,7 +240,9 @@ mod test {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
         s.add_point_light(light_loc, colour::WHITE);
-        s.add_object(Sphere::new(point(110.0, 110.0, 11.0), 2.0));
+        s.add_object(Box::new(
+            Sphere::new(point(110.0, 110.0, 11.0), 2.0)
+        ));
 
         let surface_pt = point(0.0, 0.0, 0.0);
         let light_beam = Vector::between(surface_pt, light_loc);

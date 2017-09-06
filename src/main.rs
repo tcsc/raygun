@@ -1,3 +1,5 @@
+#[cfg(test)] #[macro_use] extern crate hamcrest;
+
 extern crate argparse;
 extern crate image;
 #[macro_use] extern crate log;
@@ -124,6 +126,6 @@ fn make_scene() -> Scene {
 	sc.add_point_light(math::point(000.0,   0.0, -100.0), colour::Colour{r: 0.0, g: 0.25, b: 0.0});
 	sc.add_point_light(math::point(-100.0,  0.0, -100.0), colour::Colour{r: 0.0, g: 0.0, b: 0.25});
 
-	sc.camera = sc.camera.with_loc(0.0, 0.0, -20.0);
+	sc.camera = sc.camera.with_loc(-10.0, 0.0, -20.0);
 	sc
 }
