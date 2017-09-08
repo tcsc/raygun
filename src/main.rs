@@ -1,6 +1,5 @@
-#[cfg(test)] #[macro_use] extern crate hamcrest;
-
 extern crate argparse;
+extern crate float_cmp;
 extern crate image;
 #[macro_use] extern crate log;
 #[macro_use] extern crate nom;
@@ -41,8 +40,6 @@ fn main() {
             exit(1);
         });
 
-    s.camera = s.camera.with_loc(0.0, 0.0, -20.0);
-
     let options = render::RenderOptions {
         width: args.width,
         height: args.height
@@ -67,17 +64,17 @@ struct Args {
 
 fn parse_args() -> Args {
     use std::str::FromStr;
-    use argparse::{self, ArgumentParser, Store, StoreOption};
+    use argparse::{ArgumentParser, Store, StoreOption};
 
     let mut result = Args {
         width: 640,
         height: 480,
         scene_file: PathBuf::default(),
-        output_file: PathBuf::from(("render.png"))
+        output_file: PathBuf::default()
     };
 
     let mut scene_file = String::new();
-    let mut image_file : Option<String> = None;
+    let mut image_file = String::from("render.png");
 
     /* Artificial scope to limit borrows */ {
         let mut parser = ArgumentParser::new();
@@ -91,7 +88,7 @@ fn parse_args() -> Args {
             .metavar("INT");
 
         parser.refer(&mut image_file)
-            .add_option(&["-o", "--output"], StoreOption, "Output image file")
+            .add_option(&["-o", "--output"], Store, "Output image file")
             .metavar("FILE");
 
         parser.refer(&mut scene_file)
@@ -104,28 +101,6 @@ fn parse_args() -> Args {
 
     // repack the values that argparse won't pick up for us
     result.scene_file = PathBuf::from(scene_file);
-    result.scene_file = image_file.map(PathBuf::from)
-                                  .unwrap_or(result.scene_file);
+    result.output_file = PathBuf::from(image_file);
     result
-}
-
-fn make_scene() -> Scene {
-	use primitive::Sphere;
-	use math::point;
-
-	let mut sc = Scene::new();
-	let objs : Vec<Box<primitive::Primitive>> =
-		(0..20).map(|n| n as f64)
-			   .map(|n| Sphere::new(point((n - 10.0)*1.25, 0.0, (n - 10.0)*4.0), 1.0))
-			   .map(|s| Box::new(s) as Box<primitive::Primitive>)
-			   .collect();
-
-	sc.add_objects(objs);
-	sc.add_point_light(math::point(100.0, 000.0, -000.0), colour::WHITE);
-	sc.add_point_light(math::point(100.0,   0.0, -100.0), colour::Colour{r: 0.5, g: 0.0, b: 0.0});
-	sc.add_point_light(math::point(000.0,   0.0, -100.0), colour::Colour{r: 0.0, g: 0.25, b: 0.0});
-	sc.add_point_light(math::point(-100.0,  0.0, -100.0), colour::Colour{r: 0.0, g: 0.0, b: 0.25});
-
-	sc.camera = sc.camera.with_loc(-10.0, 0.0, -20.0);
-	sc
 }

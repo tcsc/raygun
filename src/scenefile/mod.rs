@@ -212,6 +212,11 @@ fn light<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Light
 fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
     let mut state = SceneState::default();
     let mut text = input;
+
+    let (mut text, cam) = camera(input, &state)
+        .unwrap_or((input, Camera::default()));
+    state.scene.camera = cam;
+
     loop {
         if text.is_empty() {
             return IResult::Done(text, state.scene)

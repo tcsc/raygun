@@ -2,6 +2,7 @@ use math::*;
 use ray::Ray;
 use units::{Angle, Radians, degrees};
 
+#[derive(Debug)]
 pub struct Camera {
     pub loc:  Point,
     pub dir:  Vector,
@@ -47,17 +48,25 @@ impl Camera {
         //   \                      \|/
         //     right
         //
-        let right = self.up.cross(self.dir).normalize();
-        let vy = -self.up;
+        debug!("Generating projection...");
+
         let plane_centre = self.loc + self.dir;
 
-        let width_v = right * (self.hfov / 2isize).tan();
+        let half_hfov : Angle<Radians> = (self.hfov / 2.0);
+        let width_v = self.right * half_hfov.tan();
         let centre_left = plane_centre - width_v;
         let dx = (width_v * 2) / width;
 
-        let height_v = self.up * (self.vfov / 2isize).tan();
+        let half_vfov  : Angle<Radians> = (self.vfov / 2.0);
+        let height_v = self.up * half_vfov.tan();
         let top_left = centre_left + height_v;
         let dy = (-height_v * 2) / height;
+
+        debug!("Plane Centre: {:?}", plane_centre);
+        debug!("Plane Left:   {:?}", centre_left);
+        debug!("Top-left:     {:?}", top_left);
+        debug!("dx:           {:?}", dx);
+        debug!("dy:           {:?}", dy);
 
         Projection {
             topleft: top_left,
