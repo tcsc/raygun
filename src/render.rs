@@ -191,7 +191,6 @@ mod test {
         let s = test_scene();
         let r = Ray::new(point(0.0, 0.0, -10.0), vector(0.0, 0.0, 1.0));
         if let Some(i) = super::closest_intersecting_object(r, &s) {
-            println!("dist: {}", i.dist);
             assert!(floats_are_close(9.0, i.dist, 1e-6))
         } else {
             panic!("Expected an intersecting object")

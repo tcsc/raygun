@@ -3,29 +3,29 @@ camera {
     look_at: {0, 0, 0}
 }
 
-let white = colour { 1, 1, 1 }
-let mid_red = colour { 0.5, 0, 0 }
-let dull_green = colour { 0, 0.25, 0 }
-let dull_blue = colour { 0, 0, 0.25 }
+{% assign white = '{ 1, 1, 1 }' %}
+{% assign mid_red = '{ 0.5, 0, 0 }' %}
+{% assign dull_green = '{ 0, 0.25, 0 }' %}
+{% assign dull_blue = '{ 0, 0, 0.25 }' %}
 
 point_light {
     location: { 100, 0, 0 },
-    colour: white
+    colour: {{ white }}
 }
 
 point_light {
     location: { 100, 0, -100 },
-    colour: mid_red
+    colour: {{ mid_red }}
 }
 
 point_light {
     location: { 0, 0, -100 },
-    colour: dull_green
+    colour: {{ dull_green }}
 }
 
 point_light {
     location: {-100, 0, -100},
-    colour: dull_blue
+    colour: {{ dull_blue }}
 }
 
 sphere {

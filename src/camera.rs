@@ -52,12 +52,12 @@ impl Camera {
 
         let plane_centre = self.loc + self.dir;
 
-        let half_hfov : Angle<Radians> = (self.hfov / 2.0);
+        let half_hfov : Angle<Radians> = self.hfov / 2.0;
         let width_v = self.right * half_hfov.tan();
         let centre_left = plane_centre - width_v;
         let dx = (width_v * 2) / width;
 
-        let half_vfov  : Angle<Radians> = (self.vfov / 2.0);
+        let half_vfov : Angle<Radians> = self.vfov / 2.0;
         let height_v = self.up * half_vfov.tan();
         let top_left = centre_left + height_v;
         let dy = (-height_v * 2) / height;

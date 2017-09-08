@@ -15,7 +15,6 @@ use math::{Vector};
  * Hold the state of the scene as it is being parsed
  */
 pub struct SceneState {
-    pub colours: HashMap<String, Colour>,
     pub scene: Scene,
     pub width: isize,
     pub height: isize
@@ -24,7 +23,6 @@ pub struct SceneState {
 impl SceneState {
     pub fn new(width: isize, height: isize) -> SceneState {
         SceneState {
-            colours: HashMap::new(),
             scene: Scene::new(),
             width: width,
             height: height
@@ -35,7 +33,6 @@ impl SceneState {
 impl Default for SceneState {
     fn default() -> SceneState {
         SceneState {
-            colours: HashMap::new(),
             scene: Scene::new(),
             width: 1024,
             height: 768
@@ -159,4 +156,62 @@ named!(pub real_number <f64>, do_parse!(
     )
 );
 
+#[cfg(test)]
+mod test {
+    use super::*;
 
+    #[test]
+    fn parse_named_value() {
+        use super::{named_value, real_number};
+        use nom::IResult;
+
+        let mut f  = 0.0;
+        assert_eq!(
+            named_value(b"float: 42", "float", real_number, |c| { f = c; }),
+            IResult::Done(&b""[..], ()));
+
+        assert_eq!(f, 42.0);
+    }
+
+    #[test]
+    fn parse_digit_string() {
+        use nom::IResult;
+
+        assert!(!digit_string(b"").is_done(), "Empty string");
+        assert!(!digit_string(b"abcd").is_done(), "Text string");
+        assert_eq!(digit_string(b"1234"), IResult::Done(&b""[..], "1234"));
+        assert_eq!(digit_string(b"1234a567"), IResult::Done(&b"a567"[..], "1234"));
+    }
+
+    #[test]
+    fn parse_vector_literal() {
+        use math::vector;
+        use nom::IResult;
+
+        let v = vector(1.0, 0.5, 0.0);
+        let expected = IResult::Done(&b""[..], v);
+
+        assert_eq!(vector_literal(b"{1, 0.5, 0}"), expected);
+        assert_eq!(vector_literal(b"{ 1.0 , 0.5, 0.0}"), expected);
+        assert_eq!(vector_literal(b"{1.0,0.5,0.0 }"), expected);
+    }
+
+    #[test]
+    fn parse_float() {
+        use nom::IResult;
+
+        assert!(real_number(b"").is_incomplete(), "Empty string");
+        assert_eq!(real_number(b"163"), IResult::Done(&b""[..], 163.0));
+        assert_eq!(real_number(b"+163"), IResult::Done(&b""[..], 163.0));
+        assert_eq!(real_number(b"-163"), IResult::Done(&b""[..], -163.0));
+        assert_eq!(real_number(b"-163"), IResult::Done(&b""[..], -163.0));
+        assert_eq!(real_number(b"27.01"), IResult::Done(&b""[..], 27.01));
+        assert_eq!(real_number(b"-27.01"), IResult::Done(&b""[..], -27.01));
+
+        assert_eq!(real_number(b"-12.34 plus some other text"),
+                   IResult::Done(&b" plus some other text"[..], -12.34));
+
+        assert_eq!(real_number(b"42 plus some other text"),
+                   IResult::Done(&b" plus some other text"[..], 42.0));
+    }
+}
