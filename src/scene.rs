@@ -9,7 +9,6 @@ use math::{Point};
 ///
 pub struct Scene {
     pub objects: Vec<Box<Primitive>>,
-    pub lights: Vec<Box<Light>>,
     pub camera: Camera
 }
 
@@ -17,7 +16,6 @@ impl Scene {
     pub fn new() -> Scene {
         Scene {
             camera: Camera::default(),
-            lights: Vec::new(),
             objects: Vec::new()
         }
     }
@@ -30,11 +28,13 @@ impl Scene {
         self.objects.push(obj)
     }
 
-    pub fn add_light(&mut self, l: Box<Light>) {
-        self.lights.push(l)
-    }
-
-    pub fn add_point_light(&mut self, pt: Point, colour: Colour) {
-        self.lights.push(Box::new(PointLight::new(pt, colour)))
+    pub fn lights<'a>(&'a self) -> Vec<&'a Light> {
+        let mut result = Vec::new();
+        for obj in self.objects.iter() {
+            if let Some(l) = obj.as_light() {
+                result.push(l);
+            }
+        }
+        return result;
     }
 }

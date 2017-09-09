@@ -1,6 +1,7 @@
 #[macro_use] mod constructs;
 mod camera;
 mod colour;
+mod lights;
 
 use std::f64;
 use std::any::Any;
@@ -26,6 +27,7 @@ use nom::{multispace, digit, alpha, alphanumeric, IResult, Err, ErrorKind};
 use self::camera::*;
 use self::colour::colour;
 use self::constructs::*;
+use self::lights::*;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Parsing tools
@@ -95,42 +97,19 @@ fn _box<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<_Box>>
 }
 
 // ////////////////////////////////////////////////////////////////////////////
-// lights
-// ////////////////////////////////////////////////////////////////////////////
-
-fn point_light<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<PointLight>> {
-    let mut result = Box::new(PointLight::default());
-
-    let rval = {
-        named_object!(input, "point_light",
-            block!(separated_list!(comma,
-                alt!(
-                    call!(named_value, "colour", |i| {colour(i)}, |c| { result.colour = c;}) |
-                    call!(named_value, "location", vector_literal, |p| { result.loc = p; })
-                )
-            )))
-    };
-
-    match rval {
-        IResult::Done(i, _) => IResult::Done(i, result),
-        IResult::Error(e) => IResult::Error(e),
-        IResult::Incomplete(x) => IResult::Incomplete(x)
-    }
-}
-
-// ////////////////////////////////////////////////////////////////////////////
 // top level scene file
 // ////////////////////////////////////////////////////////////////////////////
 
-fn primitive<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Primitive>> {
-    alt!(input,
-        map!(call!(sphere, state), |s| {s as Box<Primitive>}) |
-        map!(call!(_box, state), |b| {b as Box<Primitive>}) )
+fn as_primitive<T: 'static + Primitive>(p: Box<T>) -> Box<Primitive> {
+    p as Box<Primitive>
 }
 
-fn light<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Light>> {
-    //alt!(input, call!(point_light, state))
-    map!(input, call!(point_light, state), |p| {p as Box<Light>})
+fn primitive<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Primitive>> {
+    alt!(input,
+        map!(call!(sphere, state), as_primitive) |
+        map!(call!(_box, state), as_primitive) |
+        map!(call!(point_light, state), as_primitive)
+    )
 }
 
 fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
@@ -146,10 +125,9 @@ fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
             return IResult::Done(text, state.scene)
         }
 
-        let rval = ws!(text, alt!(
-            map!(call!(primitive, &state), |p| { state.scene.add_object(p); }) |
-            map!(call!(light, &state), |l| { state.scene.add_light(l); })
-        ));
+        let rval = ws!(text,
+            map!(call!(primitive, &state), |p| { state.scene.add_object(p); })
+        );
 
         match rval {
             IResult::Done(i, _) => (text = i),
@@ -201,6 +179,7 @@ pub fn load_scene<P: AsRef<Path>>(filename: P) -> Result<Scene> {
     let mut f = File::open(filename)?;
     let mut source = String::new();
     f.read_to_string(&mut source)?;
+
     scene_template(&source)
 }
 
@@ -235,23 +214,6 @@ mod test {
     //
     // ////////////////////////////////////////////////////////////////////////
 
-    #[test]
-    fn parse_point_light() {
-        use colour::Colour;
-        use math::point;
-        use light::PointLight;
-        use nom::IResult;
-
-        let mut state = SceneState::default();
-
-        match point_light(b"point_light { colour: {0.3, 0.4, 0.5}, location: {1, 2, 3} }", &state) {
-            IResult::Done(_, l) => {
-                assert_eq!(l.colour, Colour::new(0.3, 0.4, 0.5));
-                assert_eq!(l.loc, point(1.0, 2.0, 3.0));
-            },
-            IResult::Error(_) | IResult::Incomplete(_) => assert!(false)
-        }
-    }
 
     #[test]
     fn scene_template() {

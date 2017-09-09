@@ -6,7 +6,7 @@ use primitive::Primitive;
 use math::{Vector, UnitVector, Point, vector, point};
 use colour;
 use material::Finish;
-use light;
+use light::Light;
 
 pub struct RenderOptions {
     pub height: isize,
@@ -27,9 +27,11 @@ pub fn render(scene: &Scene, options: RenderOptions) -> Option<RgbaImage> {
         options.width as u32,
         options.height as u32);
 
+    let lights = scene.lights();
+
     let projection = scene.camera.projector(options.width, options.height);
     for (x, y, pixel) in img.enumerate_pixels_mut() {
-        let c = trace(projection.ray_for(x, y), scene);
+        let c = trace(projection.ray_for(x, y), scene, &lights);
         *pixel = pack_pixel(c)
     }
 
@@ -105,11 +107,12 @@ fn light_surface(viewdir: UnitVector,
                  surface_normal: UnitVector,
                  surface_colour: Colour,
                  surface_finish: &Finish,
-                 scene: &Scene) -> Colour {
+                 scene: &Scene,
+                 lights: &Vec<&Light>) -> Colour {
 
     let mut result = surface_colour * surface_finish.ambient;
-    for light in scene.lights.iter() {
-        if let Some(light_colour) = light.lights(surface_pt) {
+    for light in lights.iter() {
+        if let Some(light_colour) = light.illuminates(surface_pt) {
             let light_beam = light.src() - surface_pt;
 
             // if the light beam is not behind the point we're trying to light...
@@ -145,7 +148,7 @@ fn is_shadowed(light_ray: Ray, light_distance: f64, scene: &Scene) -> bool {
 ///
 /// Traces a ray from the source pixel through the scene
 ///
-fn trace(r: Ray, scene: &Scene) -> Colour {
+fn trace(r: Ray, scene: &Scene, lights: &Vec<&Light>) -> Colour {
     // loop {
         if let Some(ix) = closest_intersecting_object(r, scene) {
             let surface_point = r.extend(ix.dist);
@@ -155,7 +158,8 @@ fn trace(r: Ray, scene: &Scene) -> Colour {
                                  surface_normal,
                                  surface_colour,
                                  &Finish::default(),
-                                 scene)
+                                 scene,
+                                 lights)
         }
         else {
             colour::BLACK

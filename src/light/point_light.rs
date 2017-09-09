@@ -1,15 +1,10 @@
-use math::Point;
+use super::Light;
+use math::{Point, Vector};
 use colour::Colour;
+use ray::Ray;
+use primitive::Primitive;
 
-/// What makes a light a light?
-pub trait Light {
-    /**
-     * Does this light cast onto the given point? If so, what colour should it be?
-     */
-    fn lights(&self, p: Point) -> Option<Colour>;
-    fn src(&self) -> Point;
-}
-
+#[derive(Debug)]
 pub struct PointLight {
     pub loc: Point,
     pub colour: Colour
@@ -29,6 +24,20 @@ impl PointLight {
     }
 }
 
+impl Primitive for PointLight {
+    fn intersects(&self, r: Ray) -> Option<f64> {
+        None
+    }
+
+    fn normal(&self, pt: Point) -> Vector {
+        panic!("This should never be called")
+    }
+
+    fn as_light(&self) -> Option<&Light> {
+        Some(self as &Light)
+    }
+}
+
 impl Default for PointLight {
     fn default() -> PointLight {
         PointLight {
@@ -43,7 +52,7 @@ impl Light for PointLight {
         self.loc
     }
 
-    fn lights(&self, p: Point) -> Option<Colour> {
+    fn illuminates(&self, p: Point) -> Option<Colour> {
         Some(self.colour)
     }
 }
