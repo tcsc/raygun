@@ -175,6 +175,7 @@ mod test {
     use primitive::Sphere;
     use scene::Scene;
     use math::{point, vector, Vector};
+    use light::PointLight;
     use ray::Ray;
 
     fn test_scene() -> Scene {
@@ -215,7 +216,6 @@ mod test {
     fn un_occluded_light_is_not_shadowed() {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
-        s.add_point_light(light_loc, colour::WHITE);
 
         let surface_pt = point(0.0, 0.0, 0.0);
         let light_beam = Vector::between(surface_pt, light_loc);
@@ -228,7 +228,6 @@ mod test {
     fn occluded_light_is_shadowed() {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
-        s.add_point_light(light_loc, colour::WHITE);
         s.add_object(Box::new(Sphere::new(point(90.0, 90.0, 90.0), 2.0)));
 
         let surface_pt = point(0.0, 0.0, 0.0);
@@ -242,7 +241,7 @@ mod test {
     fn objects_on_other_side_of_light_do_not_occlude_light() {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
-        s.add_point_light(light_loc, colour::WHITE);
+
         s.add_object(Box::new(
             Sphere::new(point(110.0, 110.0, 11.0), 2.0)
         ));
