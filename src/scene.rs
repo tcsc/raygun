@@ -1,14 +1,16 @@
-use primitive::Primitive;
+use primitive::{Object, SurfaceInfo};
 use camera::Camera;
+use colour;
 use light::{Light, PointLight};
 use colour::Colour;
 use math::{Point};
+use ray::Ray;
 
 ///
 /// The toplevel owner of all objects and lights
 ///
 pub struct Scene {
-    pub objects: Vec<Box<Primitive>>,
+    pub objects: Vec<Object>,
     pub camera: Camera
 }
 
@@ -20,12 +22,8 @@ impl Scene {
         }
     }
 
-    pub fn add_objects(&mut self, objects: Vec<Box<Primitive>>) {
-        self.objects.extend(objects)
-    }
-
-    pub fn add_object(&mut self, obj: Box<Primitive>) {
-        self.objects.push(obj)
+    pub fn add_object(&mut self, obj: Object) {
+        self.objects.push(obj);
     }
 
     pub fn lights<'a>(&'a self) -> Vec<&'a Light> {
@@ -36,5 +34,9 @@ impl Scene {
             }
         }
         return result;
+    }
+
+    pub fn sky(&self, r: Ray) -> Colour {
+        colour::BLACK
     }
 }

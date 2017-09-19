@@ -1,4 +1,5 @@
 use std::ops;
+use std::iter;
 
 ///
 /// A colour value, with each channel normalised between 0 and 1
@@ -80,6 +81,7 @@ macro_rules! colour_mul_impl {
 }
 
 colour_mul_impl!(usize isize i32 u32 i64 u64 f32 f64);
+
 
 #[cfg(test)]
 mod test {

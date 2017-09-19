@@ -1,24 +1,31 @@
-#[macro_use] mod constructs;
+#[macro_use]
+mod constructs;
 mod camera;
 mod colour;
 mod lights;
+mod material;
+mod primitive;
 
 use std::f64;
 use std::any::Any;
-use std::str::{FromStr, from_utf8};
-use std::io::prelude::*;
-use std::io::{self, Result};
+use std::fmt;
 use std::fs::File;
+use std::io::prelude::*;
+use std::io;
 use std::path::Path;
 use std::convert::From;
 use std::error::Error;
+use std::str::{FromStr, from_utf8};
+
+use liquid::{self, Context, LiquidOptions, Renderable};
 
 use colour::Colour;
 use math::{Point, point, Vector, vector};
-use primitive::{self, Primitive, Sphere, Box as _Box};
+use primitive::Object;
 use camera::Camera;
 use light::{Light, PointLight};
 use units::{degrees, Degrees};
+use material::Material;
 
 use scene::Scene;
 
@@ -28,159 +35,95 @@ use self::camera::*;
 use self::colour::colour;
 use self::constructs::*;
 use self::lights::*;
-
-// ////////////////////////////////////////////////////////////////////////////
-// Parsing tools
-// ////////////////////////////////////////////////////////////////////////////
-
-/**
- * A possibly-empty whitespace string
- */
-named!(whitespace0< Vec<char> >, many0!(one_of!(" \t\n")));
-
-/**
- * Whitespace string with at least one char.
- */
-named!(whitespace1< Vec<char> >, many1!(one_of!(" \t\n")));
-
-// ////////////////////////////////////////////////////////////////////////////
-// Primitives
-// ////////////////////////////////////////////////////////////////////////////
-
-
-fn sphere<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<Sphere>> {
-    let mut result = Box::new(Sphere::default());
-
-    let rval = {
-        named_object!(input, "sphere",
-            block!(separated_list!(comma,
-                alt!(
-                    call!(named_value, "radius", real_number, |r| {result.radius = r;}) |
-                    call!(named_value, "centre", vector_literal, |c| {result.centre = c;})
-                )
-            )
-        ))
-    };
-
-    match rval {
-        IResult::Done(i, _) => {
-            debug!("{:?}", result);
-            IResult::Done(i, result)
-        },
-        IResult::Error(e) => IResult::Error(e),
-        IResult::Incomplete(x) => IResult::Incomplete(x)
-    }
-}
-
-fn _box<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Box<_Box>> {
-    let mut result = Box::new(_Box::default());
-
-    let rval = {
-        named_object!(input, "box",
-            block!(separated_list!(comma,
-                alt!(
-                    call!(named_value, "upper", vector_literal, |u| { result.upper = u;}) |
-                    call!(named_value, "lower", vector_literal, |l| { result.lower = l;})
-                )
-            ))
-        )
-    };
-
-    match rval {
-        IResult::Done(i, _) => {
-            debug!("{:?}", result);
-            IResult::Done(i, result)
-        },
-        IResult::Error(e) => IResult::Error(e),
-        IResult::Incomplete(x) => IResult::Incomplete(x)
-    }
-}
+use self::material::material;
+use self::primitive::primitive;
 
 // ////////////////////////////////////////////////////////////////////////////
 // top level scene file
 // ////////////////////////////////////////////////////////////////////////////
 
-fn as_primitive<T: 'static + Primitive>(p: Box<T>) -> Box<Primitive> {
-    p as Box<Primitive>
-}
-
-fn primitive<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Box<Primitive>> {
-    alt!(input,
-        map!(call!(sphere, state), as_primitive) |
-        map!(call!(_box, state), as_primitive) |
-        map!(call!(point_light, state), as_primitive)
-    )
-}
-
 fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
     let mut state = SceneState::default();
     let mut text = input;
 
-    let (mut text, cam) = camera(input, &state)
-        .unwrap_or((input, Camera::default()));
-    state.scene.camera = cam;
+    let (mut text, cam) = camera(input, &state).unwrap_or((input, Camera::default()));
 
-    loop {
-        if text.is_empty() {
-            return IResult::Done(text, state.scene)
-        }
-
-        let rval = ws!(text,
-            map!(call!(primitive, &state), |p| { state.scene.add_object(p); })
-        );
-
-        match rval {
-            IResult::Done(i, _) => (text = i),
-            IResult::Error(e) => return IResult::Error(e),
-            IResult::Incomplete(x) => return IResult::Incomplete(x)
-        }
-    }
+    many1!(text, ws!(call!(primitive, &state)))
+        .map(|objs| {
+            debug!("Parsed {} objects", objs.len());
+            Scene { camera: cam, objects: objs }
+        })
 }
 
-fn to_io_error<E>(error: E) -> io::Error
-    where E: Into<Box<Error + Send + Sync>>
-{
-    io::Error::new(io::ErrorKind::Other, error)
+//fn to_io_error<E>(error: E) -> io::Error
+//    where E: Into<Box<Error + Send + Sync>>
+//{
+//    io::Error::new(io::ErrorKind::Other, error)
+//}
+
+pub enum SceneError {
+    FileError(io::Error),
+    Template(String),
+    Scene(Vec<String>)
 }
 
-fn scene_template(source: &str) -> Result<Scene> {
-    use liquid::{self, Context, LiquidOptions, Renderable};
+fn to_template_error(e: liquid::Error) -> SceneError {
+    SceneError::Template(e.description().to_owned())
+}
 
+fn scene_template(source: &str) -> Result<Scene, SceneError> {
     debug!("Compiling scene template...");
-    let template = liquid::parse(source, LiquidOptions::default())
-        .map_err(to_io_error)?;
-    let mut ctx = Context::new();
+    liquid::parse(source, LiquidOptions::default())
+        .map_err(to_template_error)
+        .and_then(|template| {
+            let mut ctx = Context::new();
 
-    debug!("Rendering template...");
-    let scene_text = template.render(&mut ctx)
-        .map_err(to_io_error)?
-        .unwrap();
+            debug!("Rendering template...");
+            template.render(&mut ctx)
+                .map_err(to_template_error)
+                .and_then(|maybe_scene_text| {
+                    let scene_text = maybe_scene_text.unwrap();
+                    let bytes = scene_text.as_bytes().to_vec();
 
-    match scene_file(scene_text.as_bytes()) {
-        IResult::Done(_, s) => {
-            info!("Scene loaded");
-            Ok(s)
-        },
-        IResult::Error(error_kind) => {
-            error!("Scene load failed: {:?}", error_kind);
-            Err(io::Error::new(
-                io::ErrorKind::Other, error_kind.description()))
-        },
-        IResult::Incomplete(_) => {
-            info!("Scene incomplete!");
-            Err(io::Error::new(
-                io::ErrorKind::Other, "incomplete?"))
-        }
-    }
+                    File::create("scene.rso").unwrap().write(&bytes);
+
+                    debug!("Parsing scene...");
+                    match scene_file(&bytes) {
+                        IResult::Done(_, s) =>  Ok(s),
+                        IResult::Error(err) => {
+                            let mut errors = vec![String::from(err.description())];
+                            let mut cause = err.cause();
+                            loop {
+                                match cause {
+                                    Some(err) => {
+                                        errors.push(format!("{}", err));
+                                        cause = err.cause();
+                                    },
+                                    None => break Err(SceneError::Scene(errors))
+                                }
+                            }
+                        },
+                        IResult::Incomplete(_) => {
+                            Err(SceneError::Scene(vec![]))
+                        }
+                    }
+                })
+        })
 }
 
-pub fn load_scene<P: AsRef<Path>>(filename: P) -> Result<Scene> {
+pub fn load_scene<P: AsRef<Path>>(filename: P) -> Result<Scene, SceneError> {
     info!("Loading scene from {:?}...", filename.as_ref());
-    let mut f = File::open(filename)?;
-    let mut source = String::new();
-    f.read_to_string(&mut source)?;
 
-    scene_template(&source)
+    File::open(filename)
+        .map_err(|e| { SceneError::FileError(e) })
+        .and_then(|mut f| {
+            let mut source = String::new();
+            f.read_to_string(&mut source)
+                .map_err(|e| { SceneError::FileError(e) })
+                .and_then(|_| {
+                    scene_template(&source)
+                })
+        })
 }
 
 #[cfg(test)]
@@ -188,38 +131,13 @@ mod test {
     use super::*;
     use nom;
 
-    // ////////////////////////////////////////////////////////////////////////
-    //
-    // ////////////////////////////////////////////////////////////////////////
-
-    #[test]
-    fn parse_sphere() {
-        use colour::Colour;
-        use math::point;
-        use primitive::Sphere;
-        use nom::IResult;
-
-        let state = SceneState::default();
-
-        match sphere(b"sphere { radius: 1.2340, centre: {1, 2, 3} }", &state) {
-            IResult::Done(_, s) => {
-                assert_eq!(s.radius, 1.234);
-                assert_eq!(s.centre, point(1.0, 2.0, 3.0));
-            },
-            IResult::Error(_) | IResult::Incomplete(_) => assert!(false)
-        }
-    }
-
-    // ////////////////////////////////////////////////////////////////////////
-    //
-    // ////////////////////////////////////////////////////////////////////////
-
-
     #[test]
     fn scene_template() {
         super::load_scene("Hello");
     }
 
     #[test]
-    fn scene_file() { super::load_scene("scenes/example.rg"); }
+    fn scene_file() {
+        super::load_scene("scenes/example.rg");
+    }
 }

@@ -24,6 +24,13 @@ impl Ray {
 	pub fn extend(&self, len: f64) -> Point {
         self.src + (self.dir * len)
 	}
+
+    /// Reflect the ray vector through the surface normal.
+    /// http://www.3dkingdoms.com/weekly/weekly.php?a=2
+    pub fn reflect(&self, normal: Vector, surface: Point) -> Ray {
+        let dir = (-2.0 * self.dir.dot(normal) * normal) + self.dir;
+        Ray { src: surface, dir: dir.normalize() }
+    }
 }
 
 #[cfg(test)]
@@ -45,4 +52,21 @@ mod test {
 		let pt = r.extend(10.0);
 		assert_eq!(pt, point(0.0, 10.0, 0.0))
 	}
+
+    #[test]
+    fn reflection() {
+        let origin = point(0.0, 0.0, 0.0);
+        let inbound = Ray {
+            src: point(0.0, 1.0, -1.0),
+            dir: vector(0.0, -1.0, 1.0).normalize()
+        };
+
+        let outbound = inbound.reflect(
+            vector(0.0, 1.0, 0.0),
+            origin);
+
+        assert_eq!(outbound.src, origin);
+        let expected = vector(0.0, 1.0, 1.0).normalize();
+        assert!(outbound.dir.approx_eq(expected));
+    }
 }

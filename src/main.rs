@@ -1,4 +1,5 @@
 extern crate argparse;
+#[macro_use] extern crate downcast;
 extern crate float_cmp;
 extern crate image;
 #[macro_use] extern crate log;
@@ -6,7 +7,8 @@ extern crate image;
 extern crate liquid;
 extern crate simplelog;
 
-use std::str;
+use std::error::Error;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use simplelog::{TermLogger, LogLevelFilter, Config};
@@ -24,6 +26,7 @@ mod scenefile;
 mod render;
 
 use scene::*;
+use scenefile::SceneError;
 
 #[cfg(not(test))]
 fn main() {
@@ -35,8 +38,21 @@ fn main() {
     info!("Dimensions {} x {}", args.width, args.height);
 
     let mut s = scenefile::load_scene(args.scene_file)
-        .unwrap_or_else(|e| {
-            error!("Scene file loading failed {:?}", e);
+        .unwrap_or_else(|err| {
+            error!("Scene file loading failed:");
+            match err {
+                SceneError::FileError(e) => {
+                    error!("File IO error: {}", e.description());
+                },
+                SceneError::Template(s) => {
+                    error!("Template parse error: {}", s);
+                },
+                SceneError::Scene(errs) => {
+                    for e in errs {
+                        error!("{}", e)
+                    }
+                }
+            };
             exit(1);
         });
 

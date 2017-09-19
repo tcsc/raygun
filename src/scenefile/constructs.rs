@@ -4,8 +4,10 @@ use std::str::from_utf8;
 use nom::{multispace, digit, alpha, alphanumeric, IResult, Err, ErrorKind};
 
 use colour::Colour;
+use material::Material;
+use primitive::{Object, Primitive};
 use scene::Scene;
-use math::{Vector};
+use math::{Matrix, Vector};
 
 // ////////////////////////////////////////////////////////////////////////////
 // State data
@@ -15,17 +17,15 @@ use math::{Vector};
  * Hold the state of the scene as it is being parsed
  */
 pub struct SceneState {
-    pub scene: Scene,
     pub width: isize,
-    pub height: isize
+    pub height: isize,
 }
 
 impl SceneState {
     pub fn new(width: isize, height: isize) -> SceneState {
         SceneState {
-            scene: Scene::new(),
             width: width,
-            height: height
+            height: height,
         }
     }
 }
@@ -33,9 +33,8 @@ impl SceneState {
 impl Default for SceneState {
     fn default() -> SceneState {
         SceneState {
-            scene: Scene::new(),
             width: 1024,
-            height: 768
+            height: 768,
         }
     }
 }
@@ -80,28 +79,29 @@ macro_rules! named_object {
     );
 }
 
+#[macro_export]
+macro_rules! set {
+    ($t:expr) => {
+        |__v__| { $t = __v__; }
+    }
+}
+
 pub fn named_value<'a, T, ParserFn, StoreFn>(input: &'a [u8],
                                              name: &str,
                                              parser: ParserFn,
                                              mut storefn: StoreFn)
                                              -> IResult<&'a [u8], ()>
-    where
-        StoreFn : FnMut(T) -> (),
-        ParserFn : Fn(&'a [u8]) -> IResult<&'a [u8], T> {
-    let result = do_parse!(
-            input,
-            ws!(tag!(name)) >> ws!(char!(':')) >> value: ws!(call!(parser)) >>
-            (value));
-    match result {
-        IResult::Done(i, value) => {
+    where StoreFn: FnMut(T) -> (),
+          ParserFn: Fn(&'a [u8]) -> IResult<&'a [u8], T>
+{
+    do_parse!(input, ws!(tag!(name)) >>
+                     ws!(char!(':')) >>
+                     value: ws!(call!(parser)) >> (value))
+        .map(|value| {
             storefn(value);
-            IResult::Done(i, ())
-        },
-        IResult::Error(e) => IResult::Error(e),
-        IResult::Incomplete(x) => IResult::Incomplete(x)
-    }
+            ()
+        })
 }
-
 
 /**
  * A vector literal of the form {x, y, z}
@@ -129,7 +129,7 @@ fn to_real(sign: Option<char>, integral: &str, fraction: Option<&str>) -> f64 {
     let s = match sign {
         Some('+') | None => 1.0,
         Some('-') => -1.0,
-        Some(c) => panic!("Unexpected sign char: {:?}", c)
+        Some(c) => panic!("Unexpected sign char: {:?}", c),
     };
 
     let i = integral.parse::<i64>().unwrap() as f64;
@@ -156,6 +156,12 @@ named!(pub real_number <f64>, do_parse!(
     )
 );
 
+pub fn as_object<PrimitiveT: Primitive>(p: PrimitiveT,
+                                        m: Material,
+                                        t: Matrix) -> Object {
+    Object::new(Box::new(p) as Box<Primitive>, m, t)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -165,10 +171,9 @@ mod test {
         use super::{named_value, real_number};
         use nom::IResult;
 
-        let mut f  = 0.0;
-        assert_eq!(
-            named_value(b"float: 42", "float", real_number, |c| { f = c; }),
-            IResult::Done(&b""[..], ()));
+        let mut f = 0.0;
+        assert_eq!(named_value(b"float: 42", "float", real_number, |c| { f = c; }),
+                   IResult::Done(&b""[..], ()));
 
         assert_eq!(f, 42.0);
     }
@@ -180,7 +185,8 @@ mod test {
         assert!(!digit_string(b"").is_done(), "Empty string");
         assert!(!digit_string(b"abcd").is_done(), "Text string");
         assert_eq!(digit_string(b"1234"), IResult::Done(&b""[..], "1234"));
-        assert_eq!(digit_string(b"1234a567"), IResult::Done(&b"a567"[..], "1234"));
+        assert_eq!(digit_string(b"1234a567"),
+                   IResult::Done(&b"a567"[..], "1234"));
     }
 
     #[test]

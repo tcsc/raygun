@@ -2,7 +2,7 @@ use scene::Scene;
 use image::{Rgba, RgbaImage};
 use colour::Colour;
 use ray::Ray;
-use primitive::Primitive;
+use primitive::Object;
 use math::{Vector, UnitVector, Point, vector, point};
 use colour;
 use material::Finish;
@@ -27,13 +27,19 @@ pub fn render(scene: &Scene, options: RenderOptions) -> Option<RgbaImage> {
         options.width as u32,
         options.height as u32);
 
+    debug!("Collecting lights...");
+
     let lights = scene.lights();
+
+    debug!("Beginning trace...");
 
     let projection = scene.camera.projector(options.width, options.height);
     for (x, y, pixel) in img.enumerate_pixels_mut() {
         let c = trace(projection.ray_for(x, y), scene, &lights);
         *pixel = pack_pixel(c)
     }
+
+    debug!("Trace complete.");
 
     Some(img)
 }
@@ -51,7 +57,7 @@ fn pack_pixel(c: Colour) -> Rgba<u8> {
 /// Describes the intersection of a ray and an object
 ///
 pub struct Intersection<'a> {
-    obj: &'a Primitive,
+    obj: &'a Object,
     dist: f64
 }
 
@@ -76,7 +82,7 @@ fn closest_intersecting_object<'a>(r: Ray, scene: &'a Scene) -> Option<Intersect
             }
         }
     }
-    obj.map(|o| Intersection{ obj: &(**o), dist: dist} )
+    obj.map(|o| Intersection{ obj: &(*o), dist: dist} )
 }
 
 ///
@@ -100,7 +106,7 @@ fn blinn_phong_highlight(viewdir: UnitVector,
 }
 
 ///
-/// Calculates the light ingfalling on the given point, from all lights in the scene
+/// Calculates the light falling on the given point, from all lights in the scene
 ///
 fn light_surface(viewdir: UnitVector,
                  surface_pt: Point,
@@ -145,26 +151,65 @@ fn is_shadowed(light_ray: Ray, light_distance: f64, scene: &Scene) -> bool {
     }
 }
 
+/// Reflect the incoming ray at the point of intersection, moving it
+/// infinitesimally back along the incoming ray so as not to immediately
+/// find the same point on the same object again.
+fn reflect(inbound: Ray, pt: Point, normal: Vector) -> Ray {
+    let reflected = inbound.reflect(normal, pt);
+    let offset = normal * 1e-12;
+    Ray {
+        src: reflected.src + offset,
+        dir: reflected.dir
+    }
+}
+
+
 ///
-/// Traces a ray from the source pixel through the scene
+/// Traces a ray from the ray source through the scene
 ///
-fn trace(r: Ray, scene: &Scene, lights: &Vec<&Light>) -> Colour {
-    // loop {
-        if let Some(ix) = closest_intersecting_object(r, scene) {
-            let surface_point = r.extend(ix.dist);
-            let surface_normal = ix.obj.normal(surface_point);
-            let surface_colour = colour::WHITE;
-            light_surface(r.dir, surface_point,
-                                 surface_normal,
-                                 surface_colour,
-                                 &Finish::default(),
-                                 scene,
-                                 lights)
-        }
-        else {
-            colour::BLACK
-        }
-    //}
+fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<&Light>) -> Colour {
+    use std::collections::VecDeque;
+
+    const THRESHOLD : f64 = 1e-12;
+
+    let mut contribs = Vec::new();
+    let mut rays = VecDeque::new();
+    rays.push_back((inbound_ray, 1.0));
+
+    while !rays.is_empty() {
+        let (ray, weight) = rays.pop_front().unwrap();
+        let intersection = closest_intersecting_object(ray, scene);
+        let contrib = match intersection {
+            Some(ix) => {
+                let surface_point = ray.extend(ix.dist);
+                let surface = ix.obj.surface_at(surface_point);
+                let colour = light_surface(ray.dir,
+                                           surface_point,
+                                           surface.normal,
+                                           surface.colour,
+                                           &surface.finish,
+                                           scene,
+                                           lights);
+
+                if surface.finish.reflection > 0.0 {
+                    let newWeight = weight * surface.finish.reflection;
+                    if newWeight > THRESHOLD {
+                        let newRay = reflect(ray, surface_point, surface.normal);
+                        rays.push_back((newRay, newWeight));
+                    }
+                }
+
+                colour
+            },
+            None => {
+                scene.sky(ray)
+            }
+        };
+
+        contribs.push(contrib * weight);
+    }
+
+    contribs.iter().fold(colour::BLACK, |sum, b| sum + (*b))
 }
 
 
@@ -172,18 +217,24 @@ fn trace(r: Ray, scene: &Scene, lights: &Vec<&Light>) -> Colour {
 mod test {
     use super::*;
     use colour;
-    use primitive::Sphere;
+    use primitive::{Object, Primitive, Sphere};
     use scene::Scene;
     use math::{point, vector, Vector};
     use light::PointLight;
     use ray::Ray;
 
+    fn to_obj<P: Primitive>(p: P) -> Object {
+        Object::from(Box::new(p))
+    }
+
     fn test_scene() -> Scene {
         let mut s = Scene::new();
-        s.add_objects(vec!(
-            Box::new(Sphere::new(point(0.0, 0.0, 0.0), 1.0)),
-            Box::new(Sphere::new(point(0.0, 0.0, 1.0), 1.0))
-        ));
+        let objs = vec!(to_obj(Sphere::new(point(0.0, 0.0, 0.0), 1.0)),
+                        to_obj(Sphere::new(point(0.0, 0.0, 1.0), 1.0)));
+        for obj in objs {
+            s.add_object(obj)
+        }
+
         s
     }
 
@@ -228,7 +279,7 @@ mod test {
     fn occluded_light_is_shadowed() {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
-        s.add_object(Box::new(Sphere::new(point(90.0, 90.0, 90.0), 2.0)));
+        s.add_object(to_obj(Sphere::new(point(90.0, 90.0, 90.0), 2.0)));
 
         let surface_pt = point(0.0, 0.0, 0.0);
         let light_beam = Vector::between(surface_pt, light_loc);
@@ -242,9 +293,9 @@ mod test {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
 
-        s.add_object(Box::new(
-            Sphere::new(point(110.0, 110.0, 11.0), 2.0)
-        ));
+        s.add_object(
+            to_obj(Sphere::new(point(110.0, 110.0, 11.0), 2.0))
+        );
 
         let surface_pt = point(0.0, 0.0, 0.0);
         let light_beam = Vector::between(surface_pt, light_loc);

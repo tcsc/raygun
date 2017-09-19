@@ -1,15 +1,15 @@
-use std::any::Any;
 use std::boxed::Box;
+use std::fmt::Debug;
+use downcast;
+
 use ray::Ray;
 use math::{Point, Vector};
 use light::Light;
 
-use std::fmt;
-
 ///
 /// The trait that defines a primitive object
 ///
-pub trait Primitive : fmt::Debug {
+pub trait Primitive : downcast::Any + Debug {
     fn intersects(&self, r: Ray) -> Option<f64>;
     fn normal(&self, pt: Point) -> Vector;
 
@@ -18,3 +18,5 @@ pub trait Primitive : fmt::Debug {
         None
     }
 }
+
+downcast!(Primitive);

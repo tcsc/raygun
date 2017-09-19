@@ -32,7 +32,11 @@ mod test {
         use colour::Colour;
         use nom::IResult;
 
-        let c = Colour { r: 1.0, g: 0.5, b: 0.0 };
+        let c = Colour {
+            r: 1.0,
+            g: 0.5,
+            b: 0.0,
+        };
         let expected = IResult::Done(&b""[..], c);
 
         assert_eq!(colour(b"{1, 0.5, 0}"), expected);
