@@ -1,12 +1,9 @@
-use std::collections::HashMap;
 use std::str::from_utf8;
 
-use nom::{multispace, digit, alpha, alphanumeric, IResult, Err, ErrorKind};
+use nom::{digit, IResult};
 
-use colour::Colour;
 use material::Material;
 use primitive::{Object, Primitive};
-use scene::Scene;
 use math::{Matrix, Vector};
 
 // ////////////////////////////////////////////////////////////////////////////

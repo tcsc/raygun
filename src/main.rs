@@ -8,8 +8,7 @@ extern crate liquid;
 extern crate simplelog;
 
 use std::error::Error;
-use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use simplelog::{TermLogger, LogLevelFilter, Config};
 
@@ -25,7 +24,6 @@ mod scene;
 mod scenefile;
 mod render;
 
-use scene::*;
 use scenefile::SceneError;
 
 #[cfg(not(test))]
@@ -37,7 +35,7 @@ fn main() {
     let args = parse_args();
     info!("Dimensions {} x {}", args.width, args.height);
 
-    let mut s = scenefile::load_scene(args.scene_file)
+    let s = scenefile::load_scene(args.scene_file)
         .unwrap_or_else(|err| {
             error!("Scene file loading failed:");
             match err {
@@ -79,8 +77,7 @@ struct Args {
 }
 
 fn parse_args() -> Args {
-    use std::str::FromStr;
-    use argparse::{ArgumentParser, Store, StoreOption};
+    use argparse::{ArgumentParser, Store};
 
     let mut result = Args {
         width: 640,

@@ -3,7 +3,7 @@ use image::{Rgba, RgbaImage};
 use colour::Colour;
 use ray::Ray;
 use primitive::Object;
-use math::{Vector, UnitVector, Point, vector, point};
+use math::{Vector, UnitVector, Point};
 use colour;
 use material::Finish;
 use light::Light;
@@ -13,14 +13,6 @@ pub struct RenderOptions {
     pub width: isize,
 }
 
-impl RenderOptions {
-    fn new() -> RenderOptions {
-        RenderOptions {
-            width:   0,
-            height:  0
-        }
-    }
-}
 
 pub fn render(scene: &Scene, options: RenderOptions) -> Option<RgbaImage> {
     let mut img = RgbaImage::new(
@@ -192,10 +184,10 @@ fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<&Light>) -> Colour {
                                            lights);
 
                 if surface.finish.reflection > 0.0 {
-                    let newWeight = weight * surface.finish.reflection;
-                    if newWeight > THRESHOLD {
-                        let newRay = reflect(ray, surface_point, surface.normal);
-                        rays.push_back((newRay, newWeight));
+                    let new_weight = weight * surface.finish.reflection;
+                    if new_weight > THRESHOLD {
+                        let new_ray = reflect(ray, surface_point, surface.normal);
+                        rays.push_back((new_ray, new_weight));
                     }
                 }
 

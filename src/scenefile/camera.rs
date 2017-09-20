@@ -2,7 +2,7 @@ use nom::IResult;
 
 use super::constructs::*;
 use math::point;
-use units::{degrees, Degrees};
+use units::degrees;
 use camera::Camera;
 
 // ////////////////////////////////////////////////////////////////////////////

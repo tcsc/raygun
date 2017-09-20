@@ -4,7 +4,7 @@ use nom::IResult;
 
 use super::constructs::*;
 use self::pigment::pigment;
-use material::{Finish, Pigment, Material};
+use material::{Finish, Material};
 
 pub fn finish<'a>(input: &'a [u8]) -> IResult<&'a [u8], Finish> {
     let mut result = Finish::default();

@@ -1,5 +1,4 @@
 use std::ops;
-use std::iter;
 
 ///
 /// A colour value, with each channel normalised between 0 and 1

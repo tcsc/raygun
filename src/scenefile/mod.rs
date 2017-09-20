@@ -6,36 +6,21 @@ mod lights;
 mod material;
 mod primitive;
 
-use std::f64;
-use std::any::Any;
-use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io;
 use std::path::Path;
 use std::convert::From;
 use std::error::Error;
-use std::str::{FromStr, from_utf8};
 
+use nom::IResult;
 use liquid::{self, Context, LiquidOptions, Renderable};
 
-use colour::Colour;
-use math::{Point, point, Vector, vector};
-use primitive::Object;
 use camera::Camera;
-use light::{Light, PointLight};
-use units::{degrees, Degrees};
-use material::Material;
-
 use scene::Scene;
 
-use nom::{multispace, digit, alpha, alphanumeric, IResult, Err, ErrorKind};
-
 use self::camera::*;
-use self::colour::colour;
 use self::constructs::*;
-use self::lights::*;
-use self::material::material;
 use self::primitive::primitive;
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -44,22 +29,16 @@ use self::primitive::primitive;
 
 fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
     let mut state = SceneState::default();
-    let mut text = input;
 
-    let (mut text, cam) = camera(input, &state).unwrap_or((input, Camera::default()));
+    let (text, cam) = camera(input, &state)
+        .unwrap_or((input, Camera::default()));
 
-    many1!(text, ws!(call!(primitive, &state)))
+    many1!(text, ws!(call!(primitive, &mut state)))
         .map(|objs| {
             debug!("Parsed {} objects", objs.len());
             Scene { camera: cam, objects: objs }
         })
 }
-
-//fn to_io_error<E>(error: E) -> io::Error
-//    where E: Into<Box<Error + Send + Sync>>
-//{
-//    io::Error::new(io::ErrorKind::Other, error)
-//}
 
 pub enum SceneError {
     FileError(io::Error),
@@ -85,7 +64,8 @@ fn scene_template(source: &str) -> Result<Scene, SceneError> {
                     let scene_text = maybe_scene_text.unwrap();
                     let bytes = scene_text.as_bytes().to_vec();
 
-                    File::create("scene.rso").unwrap().write(&bytes);
+                    // uncomment for debug
+                    // File::create("scene.rso").unwrap().write(&bytes);
 
                     debug!("Parsing scene...");
                     match scene_file(&bytes) {

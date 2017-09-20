@@ -3,7 +3,6 @@ use nom::IResult;
 use super::constructs::*;
 use super::colour::*;
 
-use colour::Colour;
 use light::PointLight;
 use material::Material;
 use math::Matrix;

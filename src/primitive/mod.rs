@@ -8,7 +8,6 @@ pub mod sphere;
 pub mod group;
 pub mod _box;
 
-use std::borrow::Borrow;
 use std::boxed;
 
 use colour::Colour;

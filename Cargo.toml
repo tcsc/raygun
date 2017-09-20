@@ -10,11 +10,8 @@ float-cmp = "0.2.4"
 image = "0.15.0"
 liquid = "0.10.0"
 log = "0.3.8"
+nom = "3.2.0"
 simplelog = "0.4.2"
-
-[dependencies.nom]
-version = "3.2.0"
-# features = ["verbose-errors"]
 
 [profile.test]
 opt-level = 0

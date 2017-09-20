@@ -1,11 +1,9 @@
 
 use nom::IResult;
 
-#[macro_use]
 use super::super::constructs::*;
 use super::super::colour::colour;
-use colour::Colour;
-use material::{Finish, Pigment, Material};
+use material::Pigment;
 
 fn solid_pigment<'a>(input: &'a [u8]) -> IResult<&'a [u8], Pigment> {
     let mut result = Pigment::default();

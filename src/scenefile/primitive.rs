@@ -1,6 +1,5 @@
 use nom::IResult;
 
-use colour::Colour;
 use material::Material;
 use math::Matrix;
 use primitive::{Box as _Box, Object, Sphere};
@@ -10,7 +9,7 @@ use super::SceneState;
 use super::constructs::*;
 use super::lights::point_light;
 
-fn sphere<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Object> {
+fn sphere<'a>(input: &'a [u8], scene: &mut SceneState) -> IResult<&'a [u8], Object> {
     let mut result = Sphere::default();
     let mut m = Material::default();
 
@@ -29,7 +28,7 @@ fn sphere<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Object> 
     rval.map(|_| as_object(result, m, Matrix::default()))
 }
 
-fn _box<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Object> {
+fn _box<'a>(input: &'a [u8], scene: &mut SceneState) -> IResult<&'a [u8], Object> {
     let mut b = _Box::default();
     let mut m = Material::default();
 
@@ -47,7 +46,7 @@ fn _box<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Object> {
     rval.map(|_| as_object(b, m, Matrix::default()))
 }
 
-pub fn primitive<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Object> {
+pub fn primitive<'a>(input: &'a [u8], state: &mut SceneState) -> IResult<&'a [u8], Object> {
     alt!(input, call!(sphere, state) |
                 call!(_box, state) |
                 call!(point_light, state))
@@ -65,9 +64,9 @@ mod test {
         use primitive::Sphere;
         use nom::IResult;
 
-        let state = SceneState::default();
+        let mut state = SceneState::default();
 
-        match sphere(b"sphere { radius: 1.2340, centre: {1, 2, 3} }", &state) {
+        match sphere(b"sphere { radius: 1.2340, centre: {1, 2, 3} }", &mut state) {
             IResult::Done(_, obj) => {
                 let s = obj.as_primitive::<Sphere>().unwrap();
                 assert_eq!(s.radius, 1.234);
@@ -84,9 +83,9 @@ mod test {
         use primitive::Box as _Box;
         use nom::IResult;
 
-        let state = SceneState::default();
+        let mut state = SceneState::default();
 
-        match _box(b"box { lower: {1,2,3}, upper: {4.1, 5.2, 6.3} }", &state) {
+        match _box(b"box { lower: {1,2,3}, upper: {4.1, 5.2, 6.3} }", &mut state) {
             IResult::Done(_, obj) => {
                 let b = obj.as_primitive::<_Box>().unwrap();
                 assert!(b.lower.approx_eq(point(1.0, 2.0, 3.0)),

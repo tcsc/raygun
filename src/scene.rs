@@ -1,9 +1,8 @@
-use primitive::{Object, SurfaceInfo};
+use primitive::Object;
 use camera::Camera;
 use colour;
-use light::{Light, PointLight};
+use light::Light;
 use colour::Colour;
-use math::{Point};
 use ray::Ray;
 
 ///
