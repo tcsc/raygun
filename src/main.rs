@@ -5,6 +5,7 @@ extern crate image;
 #[macro_use] extern crate log;
 #[macro_use] extern crate nom;
 extern crate liquid;
+extern crate rayon;
 extern crate simplelog;
 
 use std::error::Error;

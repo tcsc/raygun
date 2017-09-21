@@ -11,6 +11,7 @@ image = "0.15.0"
 liquid = "0.10.0"
 log = "0.3.8"
 nom = "3.2.0"
+rayon = "0.8.2"
 simplelog = "0.4.2"
 
 [profile.test]

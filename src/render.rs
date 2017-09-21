@@ -1,3 +1,5 @@
+use rayon;
+
 use scene::Scene;
 use image::{Rgba, RgbaImage};
 use colour::Colour;
@@ -15,21 +17,47 @@ pub struct RenderOptions {
 
 
 pub fn render(scene: &Scene, options: RenderOptions) -> Option<RgbaImage> {
-    let mut img = RgbaImage::new(
-        options.width as u32,
-        options.height as u32);
+    use std::sync::mpsc::channel;
 
     debug!("Collecting lights...");
 
-    let lights = scene.lights();
+    let lights = &scene.lights();
 
     debug!("Beginning trace...");
 
-    let projection = scene.camera.projector(options.width, options.height);
-    for (x, y, pixel) in img.enumerate_pixels_mut() {
-        let c = trace(projection.ray_for(x, y), scene, &lights);
-        *pixel = pack_pixel(c)
-    }
+    let pixel_count = options.width * options.height;
+    let img = rayon::scope(move |s| {
+        let mut img = RgbaImage::new(
+            options.width as u32,
+            options.height as u32);
+
+        let projection = scene.camera.projector(options.width,
+                                                options.height);
+
+        let (tx, rx) = channel();
+
+        debug!("Spawning render tasks...");
+
+        for y in 0..(options.height as u32) {
+            for x in 0..(options.width as u32) {
+                let ray = projection.ray_for(x, y);
+                let sender = tx.clone();
+                s.spawn(move |_| {
+                    let c = trace(ray, scene, lights);
+                    sender.send((x, y, c)).unwrap();
+                })
+            }
+        }
+
+        debug!("Gathering pixels...");
+
+        for _ in 0..pixel_count {
+            let (x, y, colour) = rx.recv().unwrap();
+            img.put_pixel(x, y, pack_pixel(colour));
+        }
+
+        img
+    });
 
     debug!("Trace complete.");
 

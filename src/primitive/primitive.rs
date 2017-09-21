@@ -9,7 +9,7 @@ use light::Light;
 ///
 /// The trait that defines a primitive object
 ///
-pub trait Primitive : downcast::Any + Debug {
+pub trait Primitive : downcast::Any + Debug + Sync {
     fn intersects(&self, r: Ray) -> Option<f64>;
     fn normal(&self, pt: Point) -> Vector;
 
