@@ -1,12 +1,14 @@
 pub use primitive::primitive::Primitive;
 pub use primitive::sphere::Sphere;
+pub use primitive::plane::Plane;
 pub use primitive::group::Group;
 pub use primitive::_box::Box;
 
-pub mod primitive;
-pub mod sphere;
-pub mod group;
 pub mod _box;
+pub mod group;
+pub mod primitive;
+pub mod plane;
+pub mod sphere;
 
 use std::boxed;
 

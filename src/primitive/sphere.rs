@@ -1,5 +1,6 @@
 use std::cmp;
 use math::*;
+
 use ray::Ray;
 use primitive::primitive::Primitive;
 

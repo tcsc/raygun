@@ -1,6 +1,6 @@
 camera {
-    location: {-15, 0, -30},
-    look_at: {-4, 0, 0}
+    location: {-30, 30, -60},
+    look_at: {0, 0, 0}
 }
 
 {% assign white = '{ 1, 1, 1 }' %}
@@ -19,7 +19,7 @@ point_light {
 }
 
 sphere {
-    centre: { -12, 0, 20 },
+    centre: { -15, 0, 0 },
     radius: 6,
     material: {
         pigment: solid { colour: {1, 0, 0} },
@@ -28,7 +28,7 @@ sphere {
 }
 
 sphere {
-    centre: { 0, 0, 20 },
+    centre: { 0, 0, 0 },
     radius: 6,
     material: {
         pigment: solid { colour: {0.5, 0.5, 0.5} },
@@ -37,7 +37,7 @@ sphere {
 }
 
 sphere {
-    centre: { 12, 0, 20 },
+    centre: { 15, 0, 0 },
     radius: 6,
     material: {
         pigment: solid { colour: {0, 0, 1} },
@@ -45,11 +45,20 @@ sphere {
     }
 }
 
+plane {
+    normal: {0.0, 1.0, 0.0},
+    offset: -20.0,
+    material: {
+        pigment: solid { colour: { 1, 1, 1 } },
+        finish: { reflection: 0.5 }
+    }
+}
+
 {% for y in (0..10) %}
 {% for x in (0..10) %}
 box {
-    lower: { {{ x | times: 2 | minus: 10.5 }}, {{ y | times: 2 | minus: 10.5}}, -0.5},
-    upper: { {{ x | times: 2 | minus: 9.5 }}, {{ y | times: 2 | minus: 9.5}}, 0.5}
+    lower: { {{ x | times: 2 | minus: 10.5 }}, {{ y | times: 2 | minus: 10.5}}, 20.5},
+    upper: { {{ x | times: 2 | minus: 9.5 }}, {{ y | times: 2 | minus: 9.5}}, 19.5}
 }
 {% endfor %}
 {% endfor %}
