@@ -21,7 +21,7 @@ use scene::Scene;
 
 use self::camera::*;
 use self::constructs::*;
-use self::primitive::primitive;
+use self::primitive::*;
 
 // ////////////////////////////////////////////////////////////////////////////
 // top level scene file
@@ -33,10 +33,14 @@ fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
     let (text, cam) = camera(input, &state)
         .unwrap_or((input, Camera::default()));
 
-    many1!(text, ws!(call!(primitive, &mut state)))
+    many1!(text, ws!(call!(primitives, &mut state)))
         .map(|objs| {
-            debug!("Parsed {} objects", objs.len());
-            Scene { camera: cam, objects: objs }
+            Scene {
+                camera: cam,
+                objects: objs.into_iter()
+                             .flat_map(|x| x)
+                             .collect()
+            }
         })
 }
 

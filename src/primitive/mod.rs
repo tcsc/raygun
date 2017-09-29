@@ -80,5 +80,9 @@ impl Object {
     pub fn as_primitive<P: Primitive>(&self) -> Option<&P> {
         self.primitive.downcast_ref::<P>().ok()
     }
+
+    pub fn transform<'a>(&'a self) -> &'a Matrix {
+        &self.transform
+    }
 }
 

@@ -4,7 +4,7 @@ use nom::{digit, IResult};
 
 use material::Material;
 use primitive::{Object, Primitive};
-use math::{Matrix, Vector};
+use math::{self, Matrix, Vector};
 
 // ////////////////////////////////////////////////////////////////////////////
 // State data
@@ -16,6 +16,7 @@ use math::{Matrix, Vector};
 pub struct SceneState {
     pub width: isize,
     pub height: isize,
+    transform_stack: Vec<Matrix>,
 }
 
 impl SceneState {
@@ -23,7 +24,26 @@ impl SceneState {
         SceneState {
             width: width,
             height: height,
+            transform_stack: vec![math::IDENTITY],
         }
+    }
+
+    pub fn push_transform(&mut self, t: Matrix) {
+        let head = self.active_transform().clone();
+        let combined = head * t;
+        self.transform_stack.push(combined);
+    }
+
+    pub fn pop_transform(&mut self) {
+        if self.transform_stack.len() == 1 {
+            panic!("Popping empty transform stack!")
+        }
+
+        self.transform_stack.pop();
+    }
+
+    pub fn active_transform<'a>(&'a self) -> &'a Matrix {
+        &self.transform_stack[self.transform_stack.len() - 1]
     }
 }
 
@@ -32,6 +52,7 @@ impl Default for SceneState {
         SceneState {
             width: 1024,
             height: 768,
+            transform_stack: vec![math::IDENTITY],
         }
     }
 }
@@ -89,7 +110,7 @@ pub fn named_value<'a, T, ParserFn, StoreFn>(input: &'a [u8],
                                              mut storefn: StoreFn)
                                              -> IResult<&'a [u8], ()>
     where StoreFn: FnMut(T) -> (),
-          ParserFn: Fn(&'a [u8]) -> IResult<&'a [u8], T>
+          ParserFn: FnOnce(&'a [u8]) -> IResult<&'a [u8], T>
 {
     do_parse!(input, ws!(tag!(name)) >>
                      ws!(char!(':')) >>
