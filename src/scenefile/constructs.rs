@@ -1,10 +1,11 @@
 use std::str::from_utf8;
+use std::sync::Arc;
 
 use nom::{digit, IResult};
 
 use material::Material;
 use primitive::{Object, Primitive};
-use math::{self, Matrix, Vector};
+use math::{self, Matrix, Vector, Transform};
 
 // ////////////////////////////////////////////////////////////////////////////
 // State data
@@ -16,22 +17,25 @@ use math::{self, Matrix, Vector};
 pub struct SceneState {
     pub width: isize,
     pub height: isize,
-    transform_stack: Vec<Matrix>,
+    transform_stack: Vec<Arc<Transform>>,
 }
 
 impl SceneState {
     pub fn new(width: isize, height: isize) -> SceneState {
+        let base = Arc::new(Transform::default());
         SceneState {
             width: width,
             height: height,
-            transform_stack: vec![math::IDENTITY],
+            transform_stack: vec![base],
         }
     }
 
-    pub fn push_transform(&mut self, t: Matrix) {
-        let head = self.active_transform().clone();
-        let combined = head * t;
-        self.transform_stack.push(combined);
+    pub fn push_transform(&mut self, t: Transform) {
+        let head = self.active_transform();
+        let fwd = head.matrix * t.matrix;
+        let inv = t.inverse * head.inverse;
+        let t = Arc::new(Transform { matrix: fwd, inverse: inv });
+        self.transform_stack.push(t);
     }
 
     pub fn pop_transform(&mut self) {
@@ -42,17 +46,18 @@ impl SceneState {
         self.transform_stack.pop();
     }
 
-    pub fn active_transform<'a>(&'a self) -> &'a Matrix {
-        &self.transform_stack[self.transform_stack.len() - 1]
+    pub fn active_transform(&self) -> Arc<Transform> {
+        self.transform_stack[self.transform_stack.len() - 1].clone()
     }
 }
 
 impl Default for SceneState {
     fn default() -> SceneState {
+        let base = Arc::new(Transform::default());
         SceneState {
             width: 1024,
             height: 768,
-            transform_stack: vec![math::IDENTITY],
+            transform_stack: vec![base],
         }
     }
 }
@@ -176,7 +181,7 @@ named!(pub real_number <f64>, do_parse!(
 
 pub fn as_object<PrimitiveT: Primitive>(p: PrimitiveT,
                                         m: Material,
-                                        t: Matrix) -> Object {
+                                        t: Arc<Transform>) -> Object {
     Object::new(Box::new(p) as Box<Primitive>, m, t)
 }
 

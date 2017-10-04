@@ -1,7 +1,7 @@
 use nom::IResult;
 
 use material::Material;
-use math::{self, Matrix, Vector};
+use math::{self, Vector, Transform};
 use primitive::{Box as _Box, Object, Plane, Sphere};
 use units::degrees;
 
@@ -29,7 +29,7 @@ fn sphere<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], O
     };
 
     rval.map(|_| {
-        as_object(result, m, *scene.active_transform())
+        as_object(result, m, scene.active_transform())
     }).map_err(|e| {
         println!("Sphere failed {:?}", e);
         e
@@ -51,7 +51,7 @@ fn _box<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Obj
             ))
     };
 
-    rval.map(|_| as_object(b, m, *scene.active_transform()))
+    rval.map(|_| as_object(b, m, scene.active_transform()))
         .map_err(|e| {
             println!("Box failed {:?}", e);
             e
@@ -74,7 +74,7 @@ fn plane<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Ob
             ))
     };
 
-    rval.map(|_| as_object(p, m, *scene.active_transform()))
+    rval.map(|_| as_object(p, m, scene.active_transform()))
         .map_err(|e| {
             println!("Plane failed {:?}", e);
             e
@@ -90,7 +90,7 @@ fn group<'a, 'b>(input: &'a [u8], state: &'b mut SceneState) -> IResult<&'a [u8]
 
     println!("Trying group...");
 
-    let mut transform = math::IDENTITY;
+    let mut transform = Transform::identity();
     let mut result = Vec::new();
 
     let rval = {
@@ -151,8 +151,11 @@ pub fn primitives<'a, 'b>(input: &'a [u8], state: &'b mut SceneState)
     let mut result = Vec::new();
     let mut i = input;
     while i.len() > 0 {
+        // try parsing a group...
         let g = ws!(i, map!(call!(group, state),
                             |mut os| result.append(&mut os)));
+
+        // try parsing a primitive...
         let p = ws!(i, map!(call!(primitive, state),
                             |o| result.push(o)));
 
@@ -274,7 +277,7 @@ mod test {
 
         assert_eq!(v.len(), 3);
 
-        let expected_transform = math::IDENTITY
+        let expected_transform = Transform::identity()
             .translate(1.0, 2.0, 3.0)
             .rotate(degrees(90.0).radians(),
                     degrees(45.0).radians(),
@@ -301,12 +304,8 @@ mod test {
         }"#;
 
         let mut state = SceneState::default();
-        let (_, v) = group(text.as_bytes(), &mut state)
-            .map_err(|e| {
-                println!("Fail: {:?}", e);
-                e
-            }).unwrap();
-        let base = math::IDENTITY.translate(1.0, 2.0, 3.0);
+        let (_, v) = group(text.as_bytes(), &mut state).unwrap();
+        let base = Transform::identity().translate(1.0, 2.0, 3.0);
 
         assert_eq!(3, v.len());
         assert_eq!(*v[0].transform(), base);

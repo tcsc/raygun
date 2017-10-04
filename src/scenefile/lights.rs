@@ -27,7 +27,7 @@ pub fn point_light<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8],
 
     rval.map(|_| as_object(result,
                            Material::default(),
-                           Matrix::default()))
+                           scene.active_transform()))
 }
 
 

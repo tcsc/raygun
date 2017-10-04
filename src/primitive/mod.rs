@@ -11,18 +11,19 @@ pub mod plane;
 pub mod sphere;
 
 use std::boxed;
+use std::sync::Arc;
 
 use colour::Colour;
 use light::Light;
-use math::{Point, Matrix, Vector};
+use math::{self, Point, Matrix, Vector, Transform};
 use material::{Finish, Material};
 use ray::Ray;
 
 #[derive(Debug)]
 pub struct Object {
     primitive: boxed::Box<Primitive>,
-    transform: Matrix,
-    material: Material
+    material: Material,
+    transform: Arc<Transform>,
 }
 
 ///
@@ -38,7 +39,7 @@ pub struct SurfaceInfo<'a> {
 impl Object {
     pub fn new(p: boxed::Box<Primitive>,
                m: Material,
-               t: Matrix ) -> Object {
+               t: Arc<Transform> ) -> Object {
         Object {
             primitive: p,
             transform: t,
@@ -49,7 +50,7 @@ impl Object {
     pub fn from(p: boxed::Box<Primitive>) -> Object {
         Object {
             primitive: p,
-            transform: Matrix::default(),
+            transform: Arc::new(Transform::default()),
             material: Material::default()
         }
     }
@@ -81,8 +82,9 @@ impl Object {
         self.primitive.downcast_ref::<P>().ok()
     }
 
-    pub fn transform<'a>(&'a self) -> &'a Matrix {
-        &self.transform
+    pub fn transform<'a>(&'a self) -> &'a Transform {
+        use std::ops::Deref;
+        self.transform.deref()
     }
 }
 
