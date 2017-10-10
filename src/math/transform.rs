@@ -2,6 +2,10 @@
 use math::{self, Point, Matrix, Vector};
 use units::{Angle, Radians, degrees};
 
+///
+/// A Transform consists of a pair of matrices describing an affine
+/// transformation and its inverse.
+///
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Transform {
     pub matrix: Matrix,

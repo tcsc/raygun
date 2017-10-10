@@ -73,7 +73,7 @@ fn scene_template(source: &str) -> Result<Scene, SceneError> {
 
                     debug!("Parsing scene...");
                     match scene_file(&bytes) {
-                        IResult::Done(_, s) =>  Ok(s),
+                        IResult::Done(_, s) => Ok(s),
                         IResult::Error(err) => {
                             let mut errors = vec![String::from(err.description())];
                             let mut cause = err.cause();

@@ -204,22 +204,40 @@ impl ops::Mul<Matrix> for Matrix {
 impl ops::Mul<Vector> for Matrix {
     type Output = Vector;
 
+    #[inline]
     fn mul(self, rhs: Vector) -> Vector {
-        let Matrix(ref m) = self;
+        &self * &rhs
+    }
+}
+
+impl<'a> ops::Mul<Vector> for &'a Matrix {
+    type Output = Vector;
+
+    #[inline]
+    fn mul(self, rhs: Vector) -> Vector {
+        self * &rhs
+    }
+}
+
+impl<'a, 'b> ops::Mul<&'b Vector> for &'a Matrix {
+    type Output = Vector;
+
+    fn mul(self, rhs: &'b Vector) -> Vector {
+        let &Matrix(ref m) = self;
         let x = (m[idx!(0,0)] * rhs.x) +
-                (m[idx!(0,1)] * rhs.y) +
-                (m[idx!(0,2)] * rhs.z) +
-                 m[idx!(0,3)];
+            (m[idx!(0,1)] * rhs.y) +
+            (m[idx!(0,2)] * rhs.z) +
+            m[idx!(0,3)];
 
         let y = (m[idx!(1,0)] * rhs.x) +
-                (m[idx!(1,1)] * rhs.y) +
-                (m[idx!(1,2)] * rhs.z) +
-                 m[idx!(1,3)];
+            (m[idx!(1,1)] * rhs.y) +
+            (m[idx!(1,2)] * rhs.z) +
+            m[idx!(1,3)];
 
         let z = (m[idx!(2,0)] * rhs.x) +
-                (m[idx!(2,1)] * rhs.y) +
-                (m[idx!(2,2)] * rhs.z) +
-                 m[idx!(2,3)];
+            (m[idx!(2,1)] * rhs.y) +
+            (m[idx!(2,2)] * rhs.z) +
+            m[idx!(2,3)];
 
         let w = m[idx!(3,3)];
         let inv_w = 1.0 / w;

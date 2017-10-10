@@ -5,7 +5,7 @@ use image::{Rgba, RgbaImage};
 use colour::Colour;
 use ray::Ray;
 use primitive::Object;
-use math::{Vector, UnitVector, Point};
+use math::{Vector, UnitVector, Point, point};
 use colour;
 use material::Finish;
 use light::Light;
@@ -64,6 +64,13 @@ pub fn render(scene: &Scene, options: RenderOptions) -> Option<RgbaImage> {
     Some(img)
 }
 
+fn distance(a: Point, b: Point) -> f64 {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    let dz = b.z - a.z;
+    ((dx * dx) + (dy * dy) + (dz * dz)).sqrt()
+}
+
 fn pack_pixel(c: Colour) -> Rgba<u8> {
     Rgba([
         (255.0 * c.r).min(255.0) as u8,
@@ -78,7 +85,8 @@ fn pack_pixel(c: Colour) -> Rgba<u8> {
 ///
 pub struct Intersection<'a> {
     obj: &'a Object,
-    dist: f64
+    dist: f64,
+    point: Point,
 }
 
 ///
@@ -91,18 +99,25 @@ pub struct Intersection<'a> {
 fn closest_intersecting_object<'a>(r: Ray, scene: &'a Scene) -> Option<Intersection<'a>> {
     use std::f64;
 
-    let mut dist = f64::INFINITY;
-    let mut obj = None;
+    let mut min_dist = f64::INFINITY;
+    let mut intersecting_obj = None;
+    let mut intersection_point = point(f64::NAN, f64::NAN, f64::NAN);
 
-    for p in scene.objects.iter() {
-        if let Some(n) = p.intersects(r) {
-            if n < dist {
-                dist = n;
-                obj = Some(p);
+    for obj in scene.objects.iter() {
+        if let Some(pt) = obj.intersects(r) {
+            let n = distance(r.src, pt);
+            if n < min_dist {
+                min_dist = n;
+                intersecting_obj = Some(obj);
+                intersection_point = pt;
             }
         }
     }
-    obj.map(|o| Intersection{ obj: &(*o), dist: dist} )
+    intersecting_obj.map(|o| Intersection{
+        obj: &(*o),
+        dist: min_dist,
+        point: intersection_point
+    })
 }
 
 ///
@@ -201,7 +216,7 @@ fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<&Light>) -> Colour {
         let intersection = closest_intersecting_object(ray, scene);
         let contrib = match intersection {
             Some(ix) => {
-                let surface_point = ray.extend(ix.dist);
+                let surface_point = ix.point;
                 let surface = ix.obj.surface_at(surface_point);
                 let colour = light_surface(ray.dir,
                                            surface_point,

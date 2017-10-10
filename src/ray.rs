@@ -1,4 +1,4 @@
-use math::{Point, Vector};
+use math::{Point, Vector, Matrix};
 
 ///
 /// Represents a ray through the scene, starting at `src` and heading along
@@ -31,12 +31,18 @@ impl Ray {
         let dir = (-2.0 * self.dir.dot(normal) * normal) + self.dir;
         Ray { src: surface, dir: dir.normalize() }
     }
+
+    pub fn transform(&self, t: &Matrix) -> Ray {
+        let s = t * self.src;
+        let d = self.dir.transform(t).normalize();
+        Ray::new(s, d)
+    }
 }
 
 #[cfg(test)]
 mod test {
 	use super::*;
-	use math::{vector, point};
+	use math::{self, vector, point};
 
 	#[test]
 	fn ray_construction() {
@@ -68,5 +74,20 @@ mod test {
         assert_eq!(outbound.src, origin);
         let expected = vector(0.0, 1.0, 1.0).normalize();
         assert!(outbound.dir.approx_eq(expected));
+    }
+
+    #[test]
+    fn translation() {
+        let m = math::IDENTITY * math::translation_matrix(0.0, 1.0, 0.0);
+        let r = Ray::new(point(0.0,0.0,-1.0), point(0.0, 0.0, 1.0));
+        let rt = r.transform(&m);
+
+        let expected_src = point(0.0, 1.0, -1.0);
+        assert!(rt.src.approx_eq(expected_src),
+            "Expected src {:?}, got {:?}", expected_src, rt.src);
+
+        let expected_dir = vector(0.0, 0.0, 1.0);
+        assert!(rt.dir.approx_eq(expected_dir),
+            "Expected dir {:?}, got {:?}", expected_dir, rt.dir);
     }
 }

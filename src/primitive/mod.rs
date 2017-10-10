@@ -59,19 +59,31 @@ impl Object {
         self.primitive.as_light()
     }
 
-    pub fn intersects(&self, r: Ray) -> Option<f64> {
-        self.primitive.intersects(r)
+    pub fn intersects(&self, r: Ray) -> Option<Point> {
+        let r_ = r.transform(&self.transform.inverse);
+        self.primitive.intersects(r_).map(|n| {
+            self.transform.matrix * r_.extend(n)
+        })
     }
 
     /// Gets information about the surface at this point. Behaviour is
     /// undefined the supplied point does not lie on the surface of the
     /// object.
     pub fn surface_at(&self, pt: Point) -> SurfaceInfo {
-        let (colour, finish) = self.material.sample(pt);
+        // convert the global point into the the local object space
+        let local_pt = self.transform.inverse * pt;
+
+        // sample the surface
+        let (colour, finish) = self.material.sample(local_pt);
+
+        // translate the surface info back into global space
         SurfaceInfo {
-            normal: self.primitive.normal(pt),
-            colour: colour,
-            finish: finish
+            normal: {
+                let n = self.primitive.normal(local_pt);
+                n.transform(&self.transform.matrix).normalize()
+            },
+            colour,
+            finish
         }
     }
 

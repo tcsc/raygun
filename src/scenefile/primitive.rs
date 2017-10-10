@@ -30,9 +30,6 @@ fn sphere<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], O
 
     rval.map(|_| {
         as_object(result, m, scene.active_transform())
-    }).map_err(|e| {
-        println!("Sphere failed {:?}", e);
-        e
     })
 }
 
@@ -52,10 +49,6 @@ fn _box<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Obj
     };
 
     rval.map(|_| as_object(b, m, scene.active_transform()))
-        .map_err(|e| {
-            println!("Box failed {:?}", e);
-            e
-        })
 }
 
 fn plane<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Object> {
@@ -75,10 +68,6 @@ fn plane<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Ob
     };
 
     rval.map(|_| as_object(p, m, scene.active_transform()))
-        .map_err(|e| {
-            println!("Plane failed {:?}", e);
-            e
-        })
 }
 
 ///
@@ -87,8 +76,6 @@ fn plane<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Ob
 ///
 fn group<'a, 'b>(input: &'a [u8], state: &'b mut SceneState) -> IResult<&'a [u8], Vec<Object>> {
     use std::cell::RefCell;
-
-    println!("Trying group...");
 
     let mut transform = Transform::identity();
     let mut result = Vec::new();
@@ -114,7 +101,7 @@ fn group<'a, 'b>(input: &'a [u8], state: &'b mut SceneState) -> IResult<&'a [u8]
                     call!(named_value, "objects",
                           |i| {
                             state.push_transform(transform);
-                            println!("parsing children...");
+                            info!("parsing children...");
                             let rval = ws!(i, block!(call!(primitives, state)));
                             state.pop_transform();
                             rval
@@ -126,10 +113,6 @@ fn group<'a, 'b>(input: &'a [u8], state: &'b mut SceneState) -> IResult<&'a [u8]
     };
 
     rval.map(|_| result)
-        .map_err(|e| {
-            println!("Group failed {:?}", e);
-            e
-        })
 }
 
 pub fn primitive<'a, 'b>(input: &'a[u8], state: &'b SceneState) -> IResult<&'a [u8], Object> {

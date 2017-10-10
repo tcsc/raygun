@@ -2,6 +2,8 @@ use std::fmt;
 use std::cmp;
 use std::ops;
 
+use math::matrix::Matrix;
+
 /// Defines an immutable 3D vector.
 #[derive(Default, Clone, Copy)]
 pub struct Vector { pub x: f64, pub y: f64, pub z: f64 }
@@ -19,6 +21,8 @@ pub type UnitVector = Vector;
 pub fn unit_vector(x: f64, y: f64, z: f64) -> UnitVector {
     vector(x, y, z).normalize()
 }
+
+const ZERO_VECTOR : Vector = Vector { x: 0.0, y: 0.0, z: 0.0 };
 
 impl Vector {
     pub fn new(x: f64, y: f64, z: f64) -> Vector {
@@ -65,6 +69,10 @@ impl Vector {
         (self.x - other.x).abs() < 1e-10 &&
         (self.y - other.y).abs() < 1e-10 &&
         (self.z - other.z).abs() < 1e-10
+    }
+
+    pub fn transform(&self, t: &Matrix) -> Vector {
+        (t * self) - (t * ZERO_VECTOR)
     }
 }
 
