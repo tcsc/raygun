@@ -1,8 +1,8 @@
 use std::cmp;
-use math::*;
+use math::{self, Point, Vector, point};
 
 use ray::Ray;
-use primitive::primitive::Primitive;
+use primitive::{AxisAlignedBox, Primitive};
 
 ///
 /// A Sphere primitive
@@ -58,6 +58,19 @@ impl Primitive for Sphere {
                     None
                 }
             }
+        }
+    }
+
+    fn bounding_box(&self) -> AxisAlignedBox {
+        let (min_x, max_x) = math::sort(self.centre.x - self.radius,
+                                        self.centre.x + self.radius);
+        let (min_y, max_y) = math::sort(self.centre.y - self.radius,
+                                        self.centre.y + self.radius);
+        let (min_z, max_z) = math::sort(self.centre.z - self.radius,
+                                        self.centre.z + self.radius);
+        AxisAlignedBox {
+            lower: point(min_x, min_y, min_z),
+            upper: point(max_x, max_y, max_z)
         }
     }
 

@@ -2,7 +2,7 @@ use super::Light;
 use math::{Point, Vector};
 use colour::Colour;
 use ray::Ray;
-use primitive::Primitive;
+use primitive::{AxisAlignedBox, Primitive};
 
 #[derive(Debug)]
 pub struct PointLight {
@@ -27,6 +27,13 @@ impl PointLight {
 impl Primitive for PointLight {
     fn intersects(&self, r: Ray) -> Option<f64> {
         None
+    }
+
+    fn bounding_box(&self) -> AxisAlignedBox {
+        AxisAlignedBox {
+            lower: Point::default(),
+            upper: Point::default()
+        }
     }
 
     fn normal(&self, pt: Point) -> Vector {

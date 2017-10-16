@@ -1,15 +1,16 @@
+use std::sync::Arc;
 use math::{Matrix, Point, Vector, IDENTITY};
-use primitive::Primitive;
+
+use primitive::{AxisAlignedBox, Object, Primitive};
 use ray::Ray;
 
 #[derive(Debug)]
 pub struct Group {
     transform: Matrix,
-    children: Vec<Box<Primitive>>
+    children: Vec<Arc<Object>>
 }
 
 impl Group {
-
 }
 
 impl Primitive for Group {
@@ -19,6 +20,13 @@ impl Primitive for Group {
 
     fn normal(&self, pt: Point) -> Vector {
         Vector::default()
+    }
+
+    fn bounding_box(&self) -> AxisAlignedBox {
+        let zero = AxisAlignedBox::default();
+        self.children
+            .iter()
+            .fold(zero, |acc, b| acc.union(&b.bounding_box()))
     }
 }
 

@@ -1,5 +1,6 @@
+use primitive::aabb::AxisAlignedBox;
 use primitive::primitive::Primitive;
-use math::{Point, Vector, vector};
+use math::{Point, Vector, point, vector};
 use ray::Ray;
 
 #[derive(Debug)]
@@ -22,6 +23,15 @@ impl Primitive for Plane {
 
     fn normal(&self, pt: Point) -> Vector {
         self.normal
+    }
+
+    fn bounding_box(&self) -> AxisAlignedBox {
+        use std::f64::{INFINITY, NEG_INFINITY};
+
+        AxisAlignedBox {
+            lower: point(NEG_INFINITY, NEG_INFINITY, NEG_INFINITY),
+            upper: point(INFINITY,INFINITY,INFINITY)
+        }
     }
 }
 

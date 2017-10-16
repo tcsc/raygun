@@ -1,87 +1,62 @@
 
 use math::{self, point, Point, Vector};
-use primitive::Primitive;
+use primitive::{AxisAlignedBox, Primitive};
 use ray::Ray;
 
 ///
 /// An axis-aligned box
 ///
 #[derive(Debug)]
-pub struct Box {
-    pub lower: Point,
-    pub upper: Point
-}
+pub struct Box(AxisAlignedBox);
 
 impl Box {
     pub fn new(lower: Point, upper: Point) -> Box {
-        Box { lower: lower, upper: upper }
+        Box(AxisAlignedBox{ lower, upper })
+    }
+
+    pub fn from(b: AxisAlignedBox) -> Box {
+        Box(b)
+    }
+
+    pub fn lower(&self) -> &Point {
+        &self.0.lower
+    }
+
+    pub fn upper(&self) -> &Point {
+        &self.0.upper
     }
 }
 
 impl Default for Box {
     fn default() -> Box {
-        Box {
+        Box(AxisAlignedBox {
             lower: point(-0.5, -0.5, -0.5),
             upper: point(0.5, 0.5, 0.5)
-        }
+        })
     }
 }
 
 impl Primitive for Box {
     fn intersects(&self, r: Ray) -> Option<f64> {
+        self.0.intersects(&r)
+    }
 
-        let t_lower_x = (self.lower.x - r.src.x) / r.dir.x;
-        let t_upper_x = (self.upper.x - r.src.x) / r.dir.x;
-        let t_lower_y = (self.lower.y - r.src.y) / r.dir.y;
-        let t_upper_y = (self.upper.y - r.src.y) / r.dir.y;
-        let t_lower_z = (self.lower.z - r.src.z) / r.dir.z;
-        let t_upper_z = (self.upper.z - r.src.z) / r.dir.z;
-
-        let t_min = f64::max(f64::max(f64::min(t_lower_x, t_upper_x),
-                                      f64::min(t_lower_y, t_upper_y)),
-                             f64::min(t_lower_z, t_upper_z));
-
-        let t_max = f64::min(f64::min(f64::max(t_lower_x, t_upper_x),
-                                      f64::max(t_lower_y, t_upper_y)),
-                             f64::max(t_lower_z, t_upper_z));
-
-        if t_max < 0.0 {
-            // ray intersects box if extended infinitely, but the whole box
-            // is behind the ray origin, which doesn't count
-            //error!("Should never happen");
-            None
-        }
-        else if t_min > t_max {
-            // Ray does not intersect box
-            None
-        }
-        else {
-            use std::panic;
-            let pt = r.extend(t_min);
-            if panic::catch_unwind(|| self.normal(pt)).is_err() {
-                error!("Box:       {:?}", self);
-                error!("Ray src:   {:?}, dir: {:?}", r.src, r.dir);
-                error!("Point:     {:?}", pt);
-                error!("Point Max: {:?}", r.extend(t_max));
-                error!("tmax:      {}", t_max);
-                error!("tmin:      {}", t_min);
-            };
-
-            Some(t_min)
-        }
+    fn bounding_box(&self) -> AxisAlignedBox {
+        self.0.clone()
     }
 
     fn normal(&self, pt: Point) -> Vector {
         use math::unit_vectors::*;
+        let &Box(ref b) = self;
 
         const EPSILON: f64 = 1e-10;
 
-        if (pt.x - self.lower.x).abs() < EPSILON { NEG_X }
-        else if (pt.x - self.upper.x).abs() < EPSILON { POS_X }
-        else if (pt.y - self.lower.y).abs() < EPSILON { NEG_Y }
-        else if (pt.y - self.upper.y).abs() < EPSILON { POS_Y }
-        else if (pt.z - self.lower.z).abs() < EPSILON { NEG_Z }
-        else if (pt.z - self.upper.z).abs() < EPSILON { POS_Z }
+        if (pt.x - b.lower.x).abs() < EPSILON { NEG_X }
+        else if (pt.x - b.upper.x).abs() < EPSILON { POS_X }
+        else if (pt.y - b.lower.y).abs() < EPSILON { NEG_Y }
+        else if (pt.y - b.upper.y).abs() < EPSILON { POS_Y }
+        else if (pt.z - b.lower.z).abs() < EPSILON { NEG_Z }
+        else if (pt.z - b.upper.z).abs() < EPSILON { POS_Z }
         else { panic!("Point not on box: {:?}", pt) }
     }
 }

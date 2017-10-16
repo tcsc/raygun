@@ -2,7 +2,7 @@ use nom::IResult;
 
 use material::Material;
 use math::{self, Vector, Transform};
-use primitive::{Box as _Box, Object, Plane, Sphere};
+use primitive::{AxisAlignedBox, Box as _Box, Object, Plane, Sphere};
 use units::degrees;
 
 use std::str;
@@ -34,7 +34,7 @@ fn sphere<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], O
 }
 
 fn _box<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Object> {
-    let mut b = _Box::default();
+    let mut b = AxisAlignedBox::default();
     let mut m = Material::default();
 
     let rval = {
@@ -48,7 +48,7 @@ fn _box<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Obj
             ))
     };
 
-    rval.map(|_| as_object(b, m, scene.active_transform()))
+    rval.map(|_| as_object(_Box::from(b), m, scene.active_transform()))
 }
 
 fn plane<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Object> {
@@ -214,9 +214,9 @@ mod test {
                             &mut state).unwrap();
 
         let b = obj.as_primitive::<_Box>().unwrap();
-        assert!(b.lower.approx_eq(point(1.0, 2.0, 3.0)),
-                "Actual: {:?}", b.lower);
-        assert!(b.upper.approx_eq(point(4.1, 5.2, 6.3)));
+        assert!(b.lower().approx_eq(point(1.0, 2.0, 3.0)),
+                "Actual: {:?}", b.lower());
+        assert!(b.upper().approx_eq(point(4.1, 5.2, 6.3)));
     }
 
     #[test]
