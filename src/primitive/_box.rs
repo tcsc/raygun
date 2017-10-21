@@ -1,6 +1,6 @@
 
 use math::{self, point, Point, Vector};
-use primitive::{AxisAlignedBox, Primitive};
+use primitive::{AxisAlignedBox, Object, Primitive, SceneVisitor};
 use ray::Ray;
 
 ///
@@ -58,5 +58,9 @@ impl Primitive for Box {
         else if (pt.z - b.lower.z).abs() < EPSILON { NEG_Z }
         else if (pt.z - b.upper.z).abs() < EPSILON { POS_Z }
         else { panic!("Point not on box: {:?}", pt) }
+    }
+
+    fn accept(&self, obj: &Object, v: &mut SceneVisitor) {
+        v.visit_box(obj, self);
     }
 }

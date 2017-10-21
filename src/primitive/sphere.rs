@@ -2,7 +2,7 @@ use std::cmp;
 use math::{self, Point, Vector, point};
 
 use ray::Ray;
-use primitive::{AxisAlignedBox, Primitive};
+use primitive::{AxisAlignedBox, Object, Primitive, SceneVisitor};
 
 ///
 /// A Sphere primitive
@@ -76,6 +76,10 @@ impl Primitive for Sphere {
 
     fn normal(&self, pt: Point) -> Vector {
         (pt - self.centre).normalize()
+    }
+
+    fn accept(&self, obj: &Object, v: &mut SceneVisitor) {
+        v.visit_sphere(obj, self);
     }
 }
 

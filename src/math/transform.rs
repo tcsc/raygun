@@ -17,18 +17,22 @@ impl Transform {
         Transform::default()
     }
 
-    pub fn translate(&self, x: f64, y: f64, z: f64) -> Transform {
-        let fwd = self.matrix * math::translation_matrix(x, y, z);
-        let inv = math::translation_matrix(-x, -y, -z) * self.inverse;
-        Transform { matrix: fwd, inverse: inv }
+    pub fn for_translation(x: f64, y: f64, z: f64) -> Transform {
+        let fwd = math::translation_matrix(x, y, z);
+        let rev = math::translation_matrix(-x, -y, -z);
+        Transform { matrix: fwd, inverse: rev }
     }
 
-    pub fn rotate(&self, x: Angle<Radians>, y: Angle<Radians>, z: Angle<Radians>)
-              -> Transform
+    pub fn translate(&self, x: f64, y: f64, z: f64) -> Transform {
+        self.apply(&Transform::for_translation(x, y, z))
+    }
+
+    pub fn for_rotation(x: Angle<Radians>, y: Angle<Radians>, z: Angle<Radians>)
+        -> Transform
     {
         let zero = Angle::<Radians>::new(0.0);
-        let mut fwd = self.matrix;
-        let mut inv = self.inverse;
+        let mut fwd = math::IDENTITY;
+        let mut inv = math::IDENTITY;
 
         if x != zero {
             fwd = fwd * math::x_rotation_matrix(x);
@@ -48,9 +52,25 @@ impl Transform {
         Transform { matrix: fwd, inverse: inv }
     }
 
+    pub fn rotate(&self, x: Angle<Radians>, y: Angle<Radians>, z: Angle<Radians>)
+        -> Transform
+    {
+        self.apply(&Transform::for_rotation(x, y, z))
+    }
+
+    pub fn for_scale(x: f64, y: f64, z: f64) -> Transform {
+        let fwd = math::scaling_matrix(x, y, z);
+        let rev = math::scaling_matrix(1.0/x, 1.0/y, 1.0/z);
+        Transform { matrix: fwd, inverse: rev }
+    }
+
     pub fn scale(&self, x: f64, y: f64, z: f64) -> Transform {
-        let fwd = self.matrix * math::scaling_matrix(x, y, z);
-        let rev = math::scaling_matrix(1.0/x, 1.0/y, 1.0/z) * self.inverse;
+        self.apply(&Transform::for_scale(x, y, z))
+    }
+
+    pub fn apply(&self, other: &Transform) -> Transform {
+        let fwd = self.matrix * other.matrix;
+        let rev = other.inverse * self.inverse;
         Transform { matrix: fwd, inverse: rev }
     }
 }

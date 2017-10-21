@@ -2,19 +2,22 @@ use nom::IResult;
 
 use material::Material;
 use math::{self, Vector, Transform};
-use primitive::{AxisAlignedBox, Box as _Box, Object, Plane, Sphere};
+use primitive::{AxisAlignedBox, Box as _Box, Object, Plane, Sphere, Union};
 use units::degrees;
 
 use std::str;
+use std::sync::Arc;
 
 use super::material::material;
 use super::SceneState;
 use super::constructs::*;
 use super::lights::point_light;
+use super::transform::*;
 
 fn sphere<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Object> {
     let mut result = Sphere::default();
     let mut m = Material::default();
+    let mut xform = None;
 
     let rval = {
         named_object!(input, "sphere",
@@ -22,20 +25,22 @@ fn sphere<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], O
                 ws!(alt!(
                     call!(named_value, "radius", real_number, set!(result.radius)) |
                     call!(named_value, "centre", vector_literal, set!(result.centre)) |
-                    call!(named_value, "material", material, set!(m))
+                    call!(named_value, "material", material, set!(m)) |
+                    call!(named_value, "transform", transform, |t| xform = Some(t))
                 ))
             )
         ))
     };
 
     rval.map(|_| {
-        as_object(result, m, scene.active_transform())
+        as_object(result, m, xform)
     })
 }
 
 fn _box<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Object> {
     let mut b = AxisAlignedBox::default();
     let mut m = Material::default();
+    let mut xform = None;
 
     let rval = {
         named_object!(input, "box",
@@ -43,17 +48,19 @@ fn _box<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Obj
                 ws!(alt!(
                     call!(named_value, "upper", vector_literal, set!(b.upper)) |
                     call!(named_value, "lower", vector_literal, set!(b.lower)) |
-                    call!(named_value, "material", material, set!(m))
+                    call!(named_value, "material", material, set!(m)) |
+                    call!(named_value, "transform", transform, |t| xform = Some(t))
                 )))
             ))
     };
 
-    rval.map(|_| as_object(_Box::from(b), m, scene.active_transform()))
+    rval.map(|_| as_object(_Box::from(b), m, xform))
 }
 
 fn plane<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Object> {
     let mut p = Plane::default();
     let mut m = Material::default();
+    let mut xform = None;
 
     let rval = {
         named_object!(input, "plane",
@@ -62,111 +69,67 @@ fn plane<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Ob
                     call!(named_value, "normal", vector_literal,
                          |n| p.normal = n.normalize()) |
                     call!(named_value, "offset", real_number, set!(p.offset)) |
-                    call!(named_value, "material", material, set!(m))
+                    call!(named_value, "material", material, set!(m)) |
+                    call!(named_value, "transform", transform, |t| xform = Some(t))
                 )))
             ))
     };
 
-    rval.map(|_| as_object(p, m, scene.active_transform()))
+    rval.map(|_| as_object(p, m, xform))
 }
 
 ///
 /// Parses a group of objects, arbitrarily transformed. Transforms are applied in the order
 /// they're encountered, and nested groups are allowed.
 ///
-fn group<'a, 'b>(input: &'a [u8], state: &'b mut SceneState) -> IResult<&'a [u8], Vec<Object>> {
+fn union<'a, 'b>(input: &'a [u8], state: &'b mut SceneState) -> IResult<&'a [u8], Object> {
     use std::cell::RefCell;
 
-    let mut transform = Transform::identity();
-    let mut result = Vec::new();
+    let mut u = Union::default();
+    let mut xform = None;
 
     let rval = {
-        named_object!(input, "group",
+        named_object!(input, "union",
             block!(separated_list!(comma,
                 ws!(alt!(
-                    call!(named_value, "translate", vector_literal,
-                         |Vector {x, y, z}| {
-                            transform = transform.translate(x, y, z);
-                         }) |
-                    call!(named_value, "rotate", vector_literal,
-                          |Vector {x, y, z}| {
-                            transform = transform.rotate(degrees(x).radians(),
-                                                         degrees(y).radians(),
-                                                         degrees(z).radians());
-                          }) |
-                    call!(named_value, "scale", vector_literal,
-                          |Vector {x, y, z}| {
-                            transform = transform.scale(x, y, z);
-                          }) |
+                    call!(named_value, "transform", transform, |t| xform = Some(t)) |
                     call!(named_value, "objects",
                           |i| {
-                            state.push_transform(transform);
                             info!("parsing children...");
                             let rval = ws!(i, block!(call!(primitives, state)));
-                            state.pop_transform();
                             rval
                           },
-                          set!(result))
+                          set!(u.children))
                 ))
             ))
         )
     };
 
-    rval.map(|_| result)
+    rval.map(|_| as_object(u, Material::default(), xform))
 }
 
-pub fn primitive<'a, 'b>(input: &'a[u8], state: &'b SceneState) -> IResult<&'a [u8], Object> {
+pub fn primitive<'a, 'b>(input: &'a[u8], state: &'b mut SceneState) -> IResult<&'a [u8], Object> {
     ws!(input,
         alt!(
             call!(sphere, state) |
             call!(_box, state) |
             call!(plane, state) |
-            call!(point_light, state)
+            call!(point_light, state) |
+            call!(union, state)
         )
     )
 }
 
 pub fn primitives<'a, 'b>(input: &'a [u8], state: &'b mut SceneState)
-    -> IResult<&'a [u8], Vec<Object>>
+    -> IResult<&'a [u8], Vec<Arc<Object>>>
 {
-    use nom::ErrorKind;
-
-    let mut result = Vec::new();
-    let mut i = input;
-    while i.len() > 0 {
-        // try parsing a group...
-        let g = ws!(i, map!(call!(group, state),
-                            |mut os| result.append(&mut os)));
-
-        // try parsing a primitive...
-        let p = ws!(i, map!(call!(primitive, state),
-                            |o| result.push(o)));
-
-        match p.or(g) {
-            IResult::Done(new_i, _) => {
-                if new_i == i {
-                    // we didn't consume anything. If we don't bail out now then
-                    // we'll end up in an infinite loop next time around. Better
-                    // to bail out now.
-                    return IResult::Error(error_position!(ErrorKind::Many0, i));
-                }
-                i = new_i;
-            },
-            IResult::Error(_) => {
-                return IResult::Done(i, result);
-            },
-            IResult::Incomplete(n) => {
-                return IResult::Incomplete(n)
-            }
-        }
-    }
-
-    IResult::Done(i, result)
+    many0!(input, map!(call!(primitive, state), |p| Arc::new(p)))
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::ops::Deref;
     use nom;
     use math::vector;
     use float_cmp::ApproxEqUlps;
@@ -242,11 +205,13 @@ mod test {
     }
 
     #[test]
-    fn parse_group() {
-        let text = r#"group {
-            translate: {1, 2, 3},
-            rotate: {90, 45, 180},
-            scale: {0.5, 2.0, 1.5},
+    fn parse_union() {
+        let text = r#"union {
+            transform: {
+                translate: {1, 2, 3},
+                rotate: {90, 45, 180},
+                scale: {0.5, 2.0, 1.5}
+            },
 
             objects: {
                 sphere { }
@@ -256,30 +221,32 @@ mod test {
         }"#;
 
         let mut state = SceneState::default();
-        let (_, v) = group(text.as_bytes(), &mut state).unwrap();
+        let (_, obj) = union(text.as_bytes(), &mut state).unwrap();
 
-        assert_eq!(v.len(), 3);
-
-        let expected_transform = Transform::identity()
-            .translate(1.0, 2.0, 3.0)
+        let expected_transform = Transform::for_translation(1.0, 2.0, 3.0)
             .rotate(degrees(90.0).radians(),
                     degrees(45.0).radians(),
                     degrees(180.0).radians())
             .scale(0.5, 2.0, 1.5);
+        assert_eq!(obj.transform.as_ref().unwrap().deref(),
+                   &expected_transform);
 
-        for o in v.iter() {
-            assert_eq!(*o.transform(), expected_transform);
-        }
+        let u = obj.as_primitive::<Union>().unwrap();
+        assert_eq!(u.children.len(), 3);
     }
 
     #[test]
     fn parse_nested_group() {
-        let text = r#"group {
-            translate: {1, 2, 3},
+        let text = r#"union {
+            transform: {
+              translate: {1, 2, 3}
+            },
             objects: {
                 sphere {}
-                group {
-                    translate: {4, 5, 6},
+                union {
+                    transform: {
+                        translate: {4, 5, 6}
+                    },
                     objects: { box { } }
                 }
                 box {}
@@ -287,13 +254,18 @@ mod test {
         }"#;
 
         let mut state = SceneState::default();
-        let (_, v) = group(text.as_bytes(), &mut state).unwrap();
-        let base = Transform::identity().translate(1.0, 2.0, 3.0);
+        let (_, obj) = union(text.as_bytes(), &mut state).unwrap();
+        let base = Transform::for_translation(1.0, 2.0, 3.0);
 
-        assert_eq!(3, v.len());
-        assert_eq!(*v[0].transform(), base);
-        assert_eq!(*v[1].transform(), base.translate(4.0, 5.0, 6.0));
-        assert_eq!(*v[2].transform(), base);
+        let u = obj.as_primitive::<Union>().unwrap();
 
+        assert_eq!(3, u.children.len());
+        assert_eq!(base, *obj.transform.as_ref().unwrap().deref());
+
+        let nested = &u.children[1];
+        let nested_union = nested.as_primitive::<Union>().unwrap();
+        assert_eq!(1, nested_union.children.len());
+        assert_eq!(nested.transform.as_ref().unwrap().deref(),
+                   &Transform::for_translation(4.0, 5.0, 6.0))
     }
 }

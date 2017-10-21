@@ -1,5 +1,5 @@
 use primitive::aabb::AxisAlignedBox;
-use primitive::primitive::Primitive;
+use primitive::{Object, Primitive, SceneVisitor};
 use math::{Point, Vector, point, vector};
 use ray::Ray;
 
@@ -32,6 +32,10 @@ impl Primitive for Plane {
             lower: point(NEG_INFINITY, NEG_INFINITY, NEG_INFINITY),
             upper: point(INFINITY,INFINITY,INFINITY)
         }
+    }
+
+    fn accept(&self, obj: &Object, v: &mut SceneVisitor) {
+        v.visit_plane(obj, self);
     }
 }
 

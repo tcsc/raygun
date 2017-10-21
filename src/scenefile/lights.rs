@@ -5,29 +5,30 @@ use super::colour::*;
 
 use light::PointLight;
 use material::Material;
-use math::Matrix;
+use math::Transform;
 use primitive::Object;
 
 pub fn point_light<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Object> {
     let mut result = PointLight::default();
+    let mut xform = Transform::default();
 
     let rval = {
         named_object!(input,
                       "point_light",
                       block!(separated_list!(comma,
-                                             alt!(call!(named_value,
-                                                        "colour",
-                                                        colour,
-                                                        set!(result.colour)) |
-                                                  call!(named_value,
-                                                        "location",
-                                                        vector_literal,
-                                                        set!(result.loc))))))
+                             alt!(call!(named_value,
+                                        "colour",
+                                        colour,
+                                        set!(result.colour)) |
+                                  call!(named_value,
+                                        "location",
+                                        vector_literal,
+                                        set!(result.loc))))))
     };
 
     rval.map(|_| as_object(result,
                            Material::default(),
-                           scene.active_transform()))
+                           Some(xform)))
 }
 
 

@@ -109,21 +109,19 @@ macro_rules! set {
     }
 }
 
-pub fn named_value<'a, T, ParserFn, StoreFn>(input: &'a [u8],
-                                             name: &str,
-                                             parser: ParserFn,
-                                             mut storefn: StoreFn)
-                                             -> IResult<&'a [u8], ()>
-    where StoreFn: FnMut(T) -> (),
+pub fn named_value<'a, T, U, ParserFn, StoreFn>(
+        input: &'a [u8],
+        name: &str,
+        parser: ParserFn,
+        mut storefn: StoreFn)
+            -> IResult<&'a [u8], U>
+    where StoreFn: FnMut(T) -> U,
           ParserFn: FnOnce(&'a [u8]) -> IResult<&'a [u8], T>
 {
     do_parse!(input, ws!(tag!(name)) >>
                      ws!(char!(':')) >>
                      value: ws!(call!(parser)) >> (value))
-        .map(|value| {
-            storefn(value);
-            ()
-        })
+        .map(|value| storefn(value))
 }
 
 /**
@@ -181,8 +179,12 @@ named!(pub real_number <f64>, do_parse!(
 
 pub fn as_object<PrimitiveT: Primitive>(p: PrimitiveT,
                                         m: Material,
-                                        t: Arc<Transform>) -> Object {
-    Object::new(Box::new(p) as Box<Primitive>, m, t)
+                                        transform: Option<Transform>) -> Object {
+    Object {
+        primitive: Arc::new(p) as Arc<Primitive>,
+        material: m,
+        transform: transform.map(|t| Box::new(t))
+    }
 }
 
 #[cfg(test)]

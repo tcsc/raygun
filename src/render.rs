@@ -251,6 +251,7 @@ fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<&Light>) -> Colour {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::sync::Arc;
     use colour;
     use primitive::{Object, Primitive, Sphere};
     use scene::Scene;
@@ -259,7 +260,7 @@ mod test {
     use ray::Ray;
 
     fn to_obj<P: Primitive>(p: P) -> Object {
-        Object::from(Box::new(p))
+        Object::from(Arc::new(p))
     }
 
     fn test_scene() -> Scene {

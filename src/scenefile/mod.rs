@@ -5,6 +5,7 @@ mod colour;
 mod lights;
 mod material;
 mod primitive;
+mod transform;
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -33,15 +34,12 @@ fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
     let (text, cam) = camera(input, &state)
         .unwrap_or((input, Camera::default()));
 
-    many1!(text, ws!(call!(primitives, &mut state)))
-        .map(|objs| {
-            Scene {
-                camera: cam,
-                objects: objs.into_iter()
-                             .flat_map(|x| x)
-                             .collect()
-            }
-        })
+    primitives(text, &mut state).map(|objs| {
+        Scene {
+            camera: cam,
+            objects: objs
+        }
+    })
 }
 
 pub enum SceneError {

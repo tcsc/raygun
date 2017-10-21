@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use primitive::Object;
 use camera::Camera;
 use colour;
@@ -9,7 +11,7 @@ use ray::Ray;
 /// The toplevel owner of all objects and lights
 ///
 pub struct Scene {
-    pub objects: Vec<Object>,
+    pub objects: Vec<Arc<Object>>,
     pub camera: Camera
 }
 
@@ -22,7 +24,7 @@ impl Scene {
     }
 
     pub fn add_object(&mut self, obj: Object) {
-        self.objects.push(obj);
+        self.objects.push(Arc::new(obj));
     }
 
     pub fn lights<'a>(&'a self) -> Vec<&'a Light> {

@@ -5,10 +5,10 @@ authors = ["Trent Clarke <trent.clarke@gmail.com>"]
 
 [dependencies]
 argparse = "0.2.1"
-downcast = "0.9.0"
-float-cmp = "0.2.4"
-image = "0.15.0"
-liquid = "0.10.0"
+downcast = "0.9.1"
+float-cmp = "0.2.5"
+image = "0.17.0"
+liquid = "0.10.1"
 log = "0.3.8"
 rayon = "0.8.2"
 simplelog = "0.4.2"
