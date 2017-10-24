@@ -1,6 +1,6 @@
 use rayon;
 
-use scene::Scene;
+use scene::{Scene, LightInfo};
 use image::{Rgba, RgbaImage};
 use colour::Colour;
 use ray::Ray;
@@ -22,6 +22,8 @@ pub fn render(scene: &Scene, options: RenderOptions) -> Option<RgbaImage> {
     debug!("Collecting lights...");
 
     let lights = &scene.lights();
+
+    debug!("Found {} lights in scene", lights.len());
 
     debug!("Beginning trace...");
 
@@ -149,10 +151,12 @@ fn light_surface(viewdir: UnitVector,
                  surface_colour: Colour,
                  surface_finish: &Finish,
                  scene: &Scene,
-                 lights: &Vec<&Light>) -> Colour {
+                 lights: &Vec<LightInfo>) -> Colour {
 
     let mut result = surface_colour * surface_finish.ambient;
-    for light in lights.iter() {
+    for light_info in lights.iter() {
+        let light = light_info.light.as_light().unwrap();
+
         if let Some(light_colour) = light.illuminates(surface_pt) {
             let light_beam = light.src() - surface_pt;
 
@@ -202,7 +206,7 @@ fn reflect(inbound: Ray, pt: Point, normal: Vector) -> Ray {
 ///
 /// Traces a ray from the ray source through the scene
 ///
-fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<&Light>) -> Colour {
+fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<LightInfo>) -> Colour {
     use std::collections::VecDeque;
 
     const THRESHOLD : f64 = 1e-12;

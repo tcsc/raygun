@@ -2,7 +2,7 @@ use super::Light;
 use math::{Point, Vector};
 use colour::Colour;
 use ray::Ray;
-use primitive::{AxisAlignedBox, Object, Primitive, SceneVisitor};
+use primitive::{AxisAlignedBox, Object, Primitive};
 
 #[derive(Debug)]
 pub struct PointLight {
@@ -42,10 +42,6 @@ impl Primitive for PointLight {
 
     fn as_light(&self) -> Option<&Light> {
         Some(self as &Light)
-    }
-
-    fn accept(&self, obj: &Object, visitor: &mut SceneVisitor) {
-        visitor.visit_point_light(obj, self);
     }
 }
 

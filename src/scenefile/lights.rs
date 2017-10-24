@@ -10,7 +10,6 @@ use primitive::Object;
 
 pub fn point_light<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8], Object> {
     let mut result = PointLight::default();
-    let mut xform = Transform::default();
 
     let rval = {
         named_object!(input,
@@ -28,7 +27,7 @@ pub fn point_light<'a>(input: &'a [u8], scene: &SceneState) -> IResult<&'a [u8],
 
     rval.map(|_| as_object(result,
                            Material::default(),
-                           Some(xform)))
+                           None))
 }
 
 

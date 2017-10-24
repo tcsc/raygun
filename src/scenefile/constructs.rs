@@ -16,8 +16,7 @@ use math::{self, Matrix, Vector, Transform};
  */
 pub struct SceneState {
     pub width: isize,
-    pub height: isize,
-    transform_stack: Vec<Arc<Transform>>,
+    pub height: isize
 }
 
 impl SceneState {
@@ -25,29 +24,8 @@ impl SceneState {
         let base = Arc::new(Transform::default());
         SceneState {
             width: width,
-            height: height,
-            transform_stack: vec![base],
+            height: height
         }
-    }
-
-    pub fn push_transform(&mut self, t: Transform) {
-        let head = self.active_transform();
-        let fwd = head.matrix * t.matrix;
-        let inv = t.inverse * head.inverse;
-        let t = Arc::new(Transform { matrix: fwd, inverse: inv });
-        self.transform_stack.push(t);
-    }
-
-    pub fn pop_transform(&mut self) {
-        if self.transform_stack.len() == 1 {
-            panic!("Popping empty transform stack!")
-        }
-
-        self.transform_stack.pop();
-    }
-
-    pub fn active_transform(&self) -> Arc<Transform> {
-        self.transform_stack[self.transform_stack.len() - 1].clone()
     }
 }
 
@@ -56,8 +34,7 @@ impl Default for SceneState {
         let base = Arc::new(Transform::default());
         SceneState {
             width: 1024,
-            height: 768,
-            transform_stack: vec![base],
+            height: 768
         }
     }
 }

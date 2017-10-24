@@ -1,7 +1,8 @@
 use std::sync::Arc;
-use math::{Matrix, Point, Vector, IDENTITY};
+use math::{Matrix, Point, Transform, Vector};
 
-use primitive::{AxisAlignedBox, Object, Primitive, SceneVisitor};
+use primitive::{AxisAlignedBox, Object, Primitive};
+use scene::SceneVisitor;
 use ray::Ray;
 
 #[derive(Debug)]
@@ -31,11 +32,21 @@ impl Primitive for Union {
             .fold(zero, |acc, b| acc.union(&b.bounding_box()))
     }
 
-    fn accept(&self, obj: &Object, v: &mut SceneVisitor) {
-        v.visit_union(obj, self);
+    fn accept_children(&self, obj: &Object, v: &mut SceneVisitor) {
+        debug!("Union: accept_children!");
+
+        let transform = match obj.transform {
+            Some(ref t) => t.as_ref().clone(),
+            None => Transform::identity()
+        };
+
+        v.push_transform(&transform);
+
         for child in self.children.iter() {
-            child.accept(v);
+            v.visit(Arc::clone(child));
         }
+
+        v.pop_transform();
     }
 }
 

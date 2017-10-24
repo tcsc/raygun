@@ -27,10 +27,6 @@ fn scale<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform> {
                 })
 }
 
-fn transform_item<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform> {
-    alt!(input, translate | rotate | scale)
-}
-
 pub fn transform<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform> {
     let mut result = Transform::identity();
     let rval = {

@@ -6,7 +6,8 @@ use ray::Ray;
 use math::{Point, Vector};
 use light::Light;
 use primitive::aabb::AxisAlignedBox;
-use primitive::{Object, SceneVisitor};
+use primitive::Object;
+use scene::SceneVisitor;
 
 
 ///
@@ -24,8 +25,8 @@ pub trait Primitive : downcast::Any + Debug + Send + Sync {
     /// Bounding box
     fn bounding_box(&self) -> AxisAlignedBox;
 
-    // visitor
-    fn accept(&self, obj: &Object, visitor: &mut SceneVisitor);
+    /// Visitor entry point if the object has any children
+    fn accept_children(&self, object: &Object, visitor: &mut SceneVisitor) {}
 }
 
 downcast!(Primitive);
