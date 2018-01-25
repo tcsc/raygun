@@ -156,8 +156,9 @@ fn light_surface(viewdir: UnitVector,
     let mut result = surface_colour * surface_finish.ambient;
     for light_info in lights.iter() {
         let light = light_info.light.as_light().unwrap();
+        let point_in_light_space = light_info.transform.matrix * surface_pt;
 
-        if let Some(light_colour) = light.illuminates(surface_pt) {
+        if let Some(light_colour) = light.illuminates(point_in_light_space) {
             let light_beam = light.src() - surface_pt;
 
             // if the light beam is not behind the point we're trying to light...

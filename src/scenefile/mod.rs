@@ -15,7 +15,7 @@ use std::convert::From;
 use std::error::Error;
 
 use nom::IResult;
-use liquid::{self, Context, LiquidOptions, Renderable};
+use liquid;
 
 use camera::Camera;
 use scene::Scene;
@@ -54,17 +54,18 @@ fn to_template_error(e: liquid::Error) -> SceneError {
 
 fn scene_template(source: &str) -> Result<Scene, SceneError> {
     debug!("Compiling scene template...");
-    liquid::parse(source, LiquidOptions::default())
+    liquid::ParserBuilder::with_liquid()
+        .build()
+        .parse(source)
         .map_err(to_template_error)
         .and_then(|template| {
-            let mut ctx = Context::new();
+            let mut globals = liquid::Object::new();
 
-            debug!("Rendering template...");
-            template.render(&mut ctx)
+            debug!("Rendering scene template...");
+            template.render(&mut globals)
                 .map_err(to_template_error)
-                .and_then(|maybe_scene_text| {
-                    let scene_text = maybe_scene_text.unwrap();
-                    let bytes = scene_text.as_bytes().to_vec();
+                .and_then(|scene_text| {
+                    let bytes : Vec<u8> = scene_text.as_bytes().to_vec();
 
                     // uncomment for debug
                     // File::create("scene.rso").unwrap().write(&bytes);
