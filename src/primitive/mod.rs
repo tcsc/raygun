@@ -1,10 +1,14 @@
-pub use primitive::aabb::AxisAlignedBox;
-pub use primitive::primitive::Primitive;
-pub use primitive::sphere::Sphere;
-pub use primitive::plane::Plane;
-pub use primitive::union::Union;
-pub use primitive::_box::Box;
-pub use primitive::object::Object;
+pub use self::{
+    aabb::AxisAlignedBox,
+    primitive::Primitive,
+    sphere::Sphere,
+    plane::Plane,
+    union::Union,
+    _box::Box,
+    object::Object
+};
+
+use log::debug;
 
 pub mod aabb;
 pub mod _box;
@@ -14,12 +18,16 @@ pub mod primitive;
 pub mod plane;
 pub mod sphere;
 
-use std::boxed;
-use std::sync::Arc;
+use std::{
+    boxed,
+    sync::Arc
+};
 
-use colour::Colour;
-use material::Finish;
-use math::Vector;
+use crate::{
+    colour::Colour,
+    material::Finish,
+    math::Vector,
+};
 
 ///
 /// The details of an object's surface at a given point.

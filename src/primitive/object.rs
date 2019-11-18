@@ -1,23 +1,25 @@
 use std::sync::Arc;
 
-use light::Light;
-use material::{Finish, Material};
-use math::{Point, Transform, Vector};
-use primitive::{AxisAlignedBox, Primitive};
-use ray::Ray;
-use scene::SceneVisitor;
+use crate::{
+    light::Light,
+    material::{Finish, Material},
+    math::{Point, Transform, Vector},
+    primitive::{AxisAlignedBox, Primitive},
+    ray::Ray,
+    scene::SceneVisitor,
+};
 
 use super::SurfaceInfo;
 
 #[derive(Debug)]
 pub struct Object {
-    pub primitive: Arc<Primitive>,
+    pub primitive: Arc<dyn Primitive>,
     pub material: Material,
     pub transform: Option<Box<Transform>>,
 }
 
 impl Object {
-    pub fn from(p: Arc<Primitive>) -> Object {
+    pub fn from(p: Arc<dyn Primitive>) -> Object {
         Object {
             primitive: p,
             transform: None,
@@ -25,7 +27,7 @@ impl Object {
         }
     }
 
-    pub fn as_light<'a>(&'a self) -> Option<&'a Light> {
+    pub fn as_light<'a>(&'a self) -> Option<&'a dyn Light> {
         self.primitive.as_light()
     }
 
@@ -78,13 +80,13 @@ impl Object {
         self.primitive.downcast_ref::<P>().ok()
     }
 
-    pub fn accept(&self, visitor: &mut SceneVisitor) {
+    pub fn accept(&self, visitor: &mut dyn SceneVisitor) {
         self.primitive.accept_children(self, visitor)
     }
 
     /// Creates a bounding box for the object
     pub fn bounding_box(&self) -> AxisAlignedBox {
-        use math::point;
+        use crate::math::point;
 
         let inner_bb = self.primitive.bounding_box();
         match self.transform {
@@ -126,17 +128,18 @@ impl Object {
 #[cfg(test)]
 mod test {
     use super::Object;
-    use math::point;
+    use crate::math::point;
     use std::f64::consts::SQRT_2;
 
     #[test]
     fn bounding_box() {
-        use math::Transform;
-        use primitive::AxisAlignedBox;
-        use primitive::_box::Box as _Box;
-        use material::Material;
-        use std::sync::Arc;
-        use units::degrees;
+        use crate::{
+            math::Transform,
+            primitive::{AxisAlignedBox, _box::Box as _Box},
+            material::Material,
+            units::degrees
+        };
+        use std::sync::Arc;    
 
         let obj = Object {
             primitive: Arc::new(_Box::default()),

@@ -1,8 +1,6 @@
-use std::fmt;
-use std::cmp;
-use std::ops;
+use std::{fmt, cmp, ops};
 
-use math::matrix::Matrix;
+use super::Matrix;
 
 /// Defines an immutable 3D vector.
 #[derive(Default, Clone, Copy)]

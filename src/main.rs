@@ -1,17 +1,13 @@
-extern crate argparse;
-#[macro_use] extern crate downcast;
-extern crate float_cmp;
-extern crate image;
-#[macro_use] extern crate log;
-#[macro_use] extern crate nom;
-extern crate liquid;
-extern crate rayon;
-extern crate simplelog;
+#![allow(unused)]
+
+#[macro_use]
+extern crate downcast;
 
 use std::error::Error;
 use std::path::PathBuf;
 
-use simplelog::{TermLogger, LogLevelFilter, Config};
+use simplelog::{TermLogger, TerminalMode, LevelFilter, Config};
+use log::{self, info, debug, error};
 
 mod colour;
 mod light;
@@ -31,7 +27,10 @@ use scenefile::SceneError;
 fn main() {
     use std::process::exit;
 
-    TermLogger::init(LogLevelFilter::Debug, Config::default()).unwrap();
+    TermLogger::init(
+        log::LevelFilter::Debug,
+        Config::default(), 
+        TerminalMode::Stdout).unwrap();
 
     let args = parse_args();
     info!("Dimensions {} x {}", args.width, args.height);

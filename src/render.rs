@@ -1,20 +1,21 @@
 use rayon;
 
-use scene::{Scene, LightInfo};
+use crate::{
+    colour::{self, Colour},
+    math::{Vector, UnitVector, Point, point},
+    primitive::Object,
+    ray::Ray,
+    scene::{Scene, LightInfo},
+    material::Finish,
+};
+
 use image::{Rgba, RgbaImage};
-use colour::Colour;
-use ray::Ray;
-use primitive::Object;
-use math::{Vector, UnitVector, Point, point};
-use colour;
-use material::Finish;
-use light::Light;
+use log::{debug, error};
 
 pub struct RenderOptions {
     pub height: isize,
     pub width: isize,
 }
-
 
 pub fn render(scene: &Scene, options: RenderOptions) -> Option<RgbaImage> {
     use std::sync::mpsc::channel;
@@ -257,12 +258,14 @@ fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<LightInfo>) -> Colour {
 mod test {
     use super::*;
     use std::sync::Arc;
-    use colour;
-    use primitive::{Object, Primitive, Sphere};
-    use scene::Scene;
-    use math::{point, vector, Vector};
-    use light::PointLight;
-    use ray::Ray;
+    use crate::{
+        colour,
+        primitive::{Object, Primitive, Sphere},
+        scene::Scene,
+        math::{point, vector, Vector},
+        light::PointLight,
+        ray::Ray
+    };
 
     fn to_obj<P: Primitive>(p: P) -> Object {
         Object::from(Arc::new(p))

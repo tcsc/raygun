@@ -1,6 +1,10 @@
-use math::*;
-use ray::Ray;
-use units::{Angle, Radians, degrees};
+use crate::{
+    math::*,
+    ray::Ray,
+    units::{Angle, Radians, degrees}
+};
+
+use log::{ debug };
 
 #[derive(Debug)]
 pub struct Camera {

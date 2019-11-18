@@ -1,8 +1,11 @@
 use std::cmp;
-use math::{self, Point, Vector, point};
 
-use ray::Ray;
-use primitive::{AxisAlignedBox, Object, Primitive};
+use crate::{
+    math::{self, Point, Vector, point},
+    ray::Ray
+};
+
+use super::{AxisAlignedBox, Object, Primitive};
 
 ///
 /// A Sphere primitive
@@ -83,9 +86,11 @@ impl Primitive for Sphere {
 #[cfg(test)]
 mod test {
     use super::*;
-    use math::*;
-    use ray::*;
-    use primitive::primitive::*;
+    use crate::{
+        math::*,
+        ray::*,
+        primitive::primitive::*
+    };
 
     #[test]
     fn default() {

@@ -7,38 +7,52 @@ mod material;
 mod primitive;
 mod transform;
 
-use std::fs::File;
-use std::io::prelude::*;
-use std::io;
-use std::path::Path;
-use std::convert::From;
-use std::error::Error;
+use std::{
+    fs::File,
+    sync::Arc,
+    cell::RefCell,
+    io::{self, Read},
+    prelude::*,
+    path::Path,
+    convert::From,
+    error::Error,
+};
 
-use nom::IResult;
+use nom::{
+    IResult,
+};
 use liquid;
+use log::{debug, info};
 
-use camera::Camera;
-use scene::Scene;
+use crate::{
+    camera::Camera,
+    scene::Scene
+};
 
-use self::camera::*;
-use self::constructs::*;
-use self::primitive::*;
+use self::{
+    camera::*,
+    constructs::*,
+    primitive::*
+};
 
 // ////////////////////////////////////////////////////////////////////////////
 // top level scene file
 // ////////////////////////////////////////////////////////////////////////////
 
 fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
-    let mut state = SceneState::default();
+    use nom::{
+        branch::alt
+    };
 
-    let (text, cam) = camera(input, &state)
-        .unwrap_or((input, Camera::default()));
+    let state = Arc::new(RefCell::new(SceneState::default()));
 
-    primitives(text, &mut state).map(|objs| {
-        Scene {
+    let (text, cam) = camera(state.clone())(input)?;
+    primitives(state.clone())(text).map(|(i, objs)| {
+        let scene = Scene {
             camera: cam,
             objects: objs
-        }
+        };
+        (i, scene)
     })
 }
 
@@ -56,10 +70,11 @@ fn scene_template(source: &str) -> Result<Scene, SceneError> {
     debug!("Compiling scene template...");
     liquid::ParserBuilder::with_liquid()
         .build()
+        .unwrap()
         .parse(source)
         .map_err(to_template_error)
         .and_then(|template| {
-            let mut globals = liquid::Object::new();
+            let mut globals = liquid::value::Object::new();
 
             debug!("Rendering scene template...");
             template.render(&mut globals)
@@ -72,22 +87,16 @@ fn scene_template(source: &str) -> Result<Scene, SceneError> {
 
                     debug!("Parsing scene...");
                     match scene_file(&bytes) {
-                        IResult::Done(_, s) => Ok(s),
-                        IResult::Error(err) => {
-                            let mut errors = vec![String::from(err.description())];
-                            let mut cause = err.cause();
-                            loop {
-                                match cause {
-                                    Some(err) => {
-                                        errors.push(format!("{}", err));
-                                        cause = err.cause();
-                                    },
-                                    None => break Err(SceneError::Scene(errors))
-                                }
-                            }
-                        },
-                        IResult::Incomplete(_) => {
+                        IResult::Ok((_, s)) => Ok(s),
+                        IResult::Err(nom::Err::Incomplete(_)) => {
                             Err(SceneError::Scene(vec![]))
+                        },
+                        IResult::Err(nom::Err::Failure((_, err))) => {
+                            let errors = vec![String::from(err.description())];
+                            Err(SceneError::Scene(errors))
+                        },
+                        IResult::Err(e) => {
+                            Err(SceneError::Scene(vec!["Unknown".to_owned()]))
                         }
                     }
                 })

@@ -1,6 +1,11 @@
+use super::{
+    Point,
+    Matrix,
+    Vector,
+    translation_matrix,
+};
 
-use math::{self, Point, Matrix, Vector};
-use units::{Angle, Radians, degrees};
+use crate::units::{Angle, Radians, degrees};
 
 ///
 /// A Transform consists of a pair of matrices describing an affine
@@ -18,8 +23,8 @@ impl Transform {
     }
 
     pub fn for_translation(x: f64, y: f64, z: f64) -> Transform {
-        let fwd = math::translation_matrix(x, y, z);
-        let rev = math::translation_matrix(-x, -y, -z);
+        let fwd = translation_matrix(x, y, z);
+        let rev = translation_matrix(-x, -y, -z);
         Transform { matrix: fwd, inverse: rev }
     }
 
@@ -31,22 +36,22 @@ impl Transform {
         -> Transform
     {
         let zero = Angle::<Radians>::new(0.0);
-        let mut fwd = math::IDENTITY;
-        let mut inv = math::IDENTITY;
+        let mut fwd = super::IDENTITY;
+        let mut inv = super::IDENTITY;
 
         if x != zero {
-            fwd = fwd * math::x_rotation_matrix(x);
-            inv = math::x_rotation_matrix(-x) * inv;
+            fwd = fwd * super::x_rotation_matrix(x);
+            inv = super::x_rotation_matrix(-x) * inv;
         }
 
         if y != zero {
-            fwd = fwd * math::y_rotation_matrix(y);
-            inv = math::y_rotation_matrix(-y) * inv;
+            fwd = fwd * super::y_rotation_matrix(y);
+            inv = super::y_rotation_matrix(-y) * inv;
         }
 
         if z != zero {
-            fwd = fwd * math::z_rotation_matrix(z);
-            inv = math::z_rotation_matrix(-z) * inv;
+            fwd = fwd * super::z_rotation_matrix(z);
+            inv = super::z_rotation_matrix(-z) * inv;
         }
 
         Transform { matrix: fwd, inverse: inv }
@@ -59,8 +64,8 @@ impl Transform {
     }
 
     pub fn for_scale(x: f64, y: f64, z: f64) -> Transform {
-        let fwd = math::scaling_matrix(x, y, z);
-        let rev = math::scaling_matrix(1.0/x, 1.0/y, 1.0/z);
+        let fwd = super::scaling_matrix(x, y, z);
+        let rev = super::scaling_matrix(1.0/x, 1.0/y, 1.0/z);
         Transform { matrix: fwd, inverse: rev }
     }
 
@@ -77,14 +82,14 @@ impl Transform {
 
 impl Default for Transform {
     fn default() -> Transform {
-        Transform { matrix: math::IDENTITY, inverse: math::IDENTITY }
+        Transform { matrix: super::IDENTITY, inverse: super::IDENTITY }
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use math::point;
+    use crate::math::point;
 
     #[test]
     fn rotation() {

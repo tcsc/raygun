@@ -1,51 +1,62 @@
-use nom::IResult;
-use math::{self, Vector, Transform, translation_matrix};
-use units::degrees;
+use nom::{
+    IResult,
+};
+
+use crate::{
+    math::{self, Vector, Transform, translation_matrix},
+    units::degrees
+};
+
 use super::constructs::*;
 
 
 fn translate<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform>  {
-    named_value(input, "translate", vector_literal,
+    named_value("translate", vector_literal,
                 | Vector {x, y, z} | {
                     Transform::identity().translate(x, y, z)
-                })
+                })(input)
 }
 
 fn rotate<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform>  {
-    named_value(input, "rotate", vector_literal,
+    named_value("rotate", vector_literal,
                 | Vector {x, y, z} | {
                     Transform::identity().rotate(degrees(x).radians(),
                                                  degrees(y).radians(),
                                                  degrees(z).radians())
-                })
+                })(input)
 }
 
 fn scale<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform> {
-    named_value(input, "scale", vector_literal,
+    named_value("scale", vector_literal,
                 | Vector { x, y, z } | {
                     Transform::identity().scale(x, y, z)
-                })
+                })(input)
 }
 
 pub fn transform<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform> {
-    let mut result = Transform::identity();
-    let rval = {
-        block!(input, separated_list!(comma,
-            ws!(map!(
-                alt!(translate | rotate | scale),
-                |t| { result = result.apply(&t) }
-            ))
-        ))
+    use nom::{
+        branch::alt,
+        combinator::map,
+        multi::separated_list
     };
 
-    rval.map(|_| result)
+    let mut result = Transform::identity();
+    let xform = alt((translate, rotate, scale));
+    let rval = 
+        block(
+            separated_list(comma, 
+                ws(map(xform, |t| { result = result.apply(&t) }))
+            )
+        )(input);
+
+    rval.map(|(i, _)| (i, result))
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use nom;
-    use units::degrees;
+    use crate::units::degrees;
 
     #[test]
     fn parse_translate() {

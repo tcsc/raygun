@@ -1,7 +1,12 @@
-use primitive::aabb::AxisAlignedBox;
-use primitive::{Object, Primitive};
-use math::{Point, Vector, point, vector};
-use ray::Ray;
+use crate::{
+    primitive::{
+        aabb::AxisAlignedBox,
+        Object, 
+        Primitive
+    },
+    math::{Point, Vector, point, vector},
+    ray::Ray,
+};
 
 #[derive(Debug)]
 pub struct Plane {
@@ -47,7 +52,7 @@ impl Default for Plane {
 #[cfg(test)]
 mod test {
     use super::*;
-    use math::{point, vector};
+    use crate::math::{point, vector};
     use std::f64::consts::SQRT_2;
     use float_cmp::ApproxEqUlps;
 

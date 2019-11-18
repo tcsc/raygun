@@ -1,7 +1,9 @@
-pub use self::matrix::*;
-pub use self::vector::*;
-pub use self::vector::unit_vectors;
-pub use self::transform::*;
+pub use self::{
+    matrix::*,
+    vector::*,
+    vector::unit_vectors,
+    transform::*
+};
 
 mod matrix;
 mod vector;

@@ -1,5 +1,7 @@
-use colour::{self, Colour};
-use math::Point;
+use crate::{
+	colour::{self, Colour},
+	math::Point
+};
 
 #[derive(Debug)]
 pub struct Finish {

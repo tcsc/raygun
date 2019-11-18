@@ -1,66 +1,43 @@
 mod pigment;
 
-use nom::IResult;
+use nom::{
+    multi::separated_list,
+    branch::alt,
+    IResult
+};
 
 use super::constructs::*;
 use self::pigment::pigment;
-use material::{Finish, Material};
+use crate::material::{Finish, Material};
 
 pub fn finish<'a>(input: &'a [u8]) -> IResult<&'a [u8], Finish> {
     let mut result = Finish::default();
 
-    let rval = {
-        block!(input,
-               separated_list!(comma,
-                               ws!(alt!(call!(named_value,
-                                              "opacity",
-                                              real_number,
-                                              set!(result.opacity)) |
-                                        call!(named_value,
-                                              "reflection",
-                                              real_number,
-                                              set!(result.reflection)) |
-                                        call!(named_value,
-                                              "ambient",
-                                              real_number,
-                                              set!(result.ambient)) |
-                                        call!(named_value,
-                                              "diffuse",
-                                              real_number,
-                                              set!(result.diffuse)) |
-                                        call!(named_value,
-                                              "highlight",
-                                              real_number,
-                                              set!(result.highlight_hardness))))))
-    };
-
-    match rval {
-        IResult::Done(i, _) => IResult::Done(i, result),
-        IResult::Error(e) => IResult::Error(e),
-        IResult::Incomplete(x) => IResult::Incomplete(x),
-    }
+    let rval = block(
+        separated_list(comma, ws(alt((
+            named_value("opacity", real_number, |o| result.opacity = o),
+            named_value("reflection", real_number, |r| result.reflection = r),
+            named_value("ambient", real_number, |a| result.ambient = a),
+            named_value("diffuse", real_number, |d| result.diffuse = d),
+            named_value("highlight", real_number, |h| result.highlight_hardness = h)
+        ))))
+    )(input);
+    rval.map(|(i, _)| (i, result))
 }
 
-pub fn material<'a>(input: &'a [u8]) -> IResult<&'a [u8], Material> {
-    let mut result = Material::default();
+pub fn material<'a>(scene: SceneRef) -> 
+    impl Fn(&'a [u8]) -> IResult<&'a [u8], Material> 
+{
+    move |input| {
+        let mut result = Material::default();
 
-    let rval = {
-        block!(input,
-               separated_list!(comma,
-                               ws!(alt!(call!(named_value,
-                                              "pigment",
-                                              pigment,
-                                              set!(result.pigment)) |
-                                        call!(named_value,
-                                              "finish",
-                                              finish,
-                                              set!(result.finish))))))
-    };
-
-    match rval {
-        IResult::Done(i, _) => IResult::Done(i, result),
-        IResult::Error(e) => IResult::Error(e),
-        IResult::Incomplete(x) => IResult::Incomplete(x),
+        let rval = block(
+            separated_list(comma, ws(alt((
+                named_value("pigment", pigment(scene), |p| result.pigment = p),
+                named_value("finish", finish, |f| result.finish = f)
+            ))))
+        )(input);
+        rval.map(|(i, _)| (i, result))
     }
 }
 
@@ -68,11 +45,10 @@ pub fn material<'a>(input: &'a [u8]) -> IResult<&'a [u8], Material> {
 mod test {
     use super::*;
     use float_cmp::ApproxEqUlps;
+    use crate::material::Finish;
 
     #[test]
     fn parses_completely_specified_finish() {
-        use material::Finish;
-
         let text = r#"{
             opacity: 0.1,
             reflection: 0.2,
@@ -82,7 +58,7 @@ mod test {
         }"#;
 
         match finish(text.as_bytes()) {
-            IResult::Done(_, actual) => {
+            IResult::Ok((_, actual)) => {
                 assert!(actual.opacity.approx_eq_ulps(&0.1, 5),
                         "Expected opacity = {}, got {}",
                         0.1,
@@ -107,9 +83,9 @@ mod test {
                         "Expected ambient = {}, got {}",
                         0.5,
                         actual.highlight_hardness);
-            }
-            IResult::Error(e) => assert!(false, "Parse failed: {:?}", e),
-            IResult::Incomplete(_) => assert!(false),
+            },
+
+            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e)
         }
     }
 }

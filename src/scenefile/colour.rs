@@ -1,23 +1,28 @@
 use super::constructs::*;
-use colour::Colour;
+use crate::colour::Colour;
+use nom::{
+    error::ParseError,
+    lib::std::ops::RangeFrom,
+    IResult,
+    AsChar,
+    InputIter,
+    Slice
+};
 
 // ////////////////////////////////////////////////////////////////////////////
 // Colours
 // ////////////////////////////////////////////////////////////////////////////
 
-/**
+/*
  * A colour literal of the form {r, g, b}
  */
-named!(pub colour <Colour>, block!(
-    do_parse!(rr: real_number >>
-              comma >>
-              gg: real_number >>
-              comma >>
-              bb: real_number >>
-              (Colour::new(rr, gg, bb)))
-));
+pub fn colour(input: &[u8]) -> IResult<&[u8], Colour> {
+    let (i, rr) = real_number(input)?;
+    let (i, gg) = comma(i).and_then(|(i, _)| real_number(i))?;
+    let (i, bb) = comma(i).and_then(|(i, _)| real_number(i))?;
 
-
+    Ok((i, Colour::new(rr, gg, bb)))
+}
 
 // ////////////////////////////////////////////////////////////////////////
 // Colour tests
@@ -29,7 +34,7 @@ mod test {
 
     #[test]
     fn parse_colour() {
-        use colour::Colour;
+        use crate::colour::Colour;
         use nom::IResult;
 
         let c = Colour {
@@ -37,7 +42,7 @@ mod test {
             g: 0.5,
             b: 0.0,
         };
-        let expected = IResult::Done(&b""[..], c);
+        let expected = IResult::Ok((&b""[..], c));
 
         assert_eq!(colour(b"{1, 0.5, 0}"), expected);
         assert_eq!(colour(b"{ 1.0 , 0.5, 0.0}"), expected);

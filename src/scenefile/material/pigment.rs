@@ -1,27 +1,36 @@
 
-use nom::IResult;
+use nom::{
+    IResult,
+    branch::alt
+};
 
-use super::super::constructs::*;
-use super::super::colour::colour;
-use material::Pigment;
+use super::super::{
+    constructs::*,
+    colour::colour
+};
+
+use crate::{
+    colour::Colour,
+    material::Pigment,
+};
 
 fn solid_pigment<'a>(input: &'a [u8]) -> IResult<&'a [u8], Pigment> {
     let mut result = Pigment::default();
 
-    let rval = {
-        named_object!(input,
-                      "solid",
-                      block!(call!(named_value,
-                                   "colour",
-                                   colour,
-                                   |c| { result = Pigment::Solid(c); })))
-    };
+    let rval = named_object("solid", 
+        block(
+            named_value("colour", colour, |c| result = Pigment::Solid(c))
+        )
+    )(input);
 
-    rval.map(|_| result)
+    rval.map(|(i, _)| (i, result))
 }
 
-pub fn pigment<'a>(input: &'a [u8]) -> IResult<&'a [u8], Pigment> {
-    ws!(input, alt!(solid_pigment))
+pub fn pigment<'a>(scene: SceneRef) -> 
+    impl Fn(&'a [u8]) -> IResult<&'a [u8], Pigment>
+{        
+    //ws(alt((solid_pigment, )))(input)
+    ws(solid_pigment)
 }
 
 #[cfg(test)]
@@ -30,19 +39,18 @@ mod test {
 
     #[test]
     fn solid_pigment() {
-        use colour::Colour;
+        use crate::colour::Colour;
 
         let text = r#"solid {
             colour: { 0.1, 0.2, 0.3 }
         }"#;
 
         match pigment(text.as_bytes()) {
-            IResult::Done(_, p) => {
+            IResult::Ok((_, p)) => {
                 let Pigment::Solid(c) = p;
                 assert_eq!(c, Colour::new(0.1, 0.2, 0.3))
             },
-            IResult::Error(e) => assert!(false, "Parse failed: {:?}", e),
-            IResult::Incomplete(x) => assert!(false, "Parse incomplete: {:?}", x),
+            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e)
         }
     }
 }

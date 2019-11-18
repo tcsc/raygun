@@ -1,8 +1,10 @@
 use super::Light;
-use math::{Point, Vector};
-use colour::Colour;
-use ray::Ray;
-use primitive::{AxisAlignedBox, Object, Primitive};
+use crate::{
+    colour::Colour,
+    math::{Point, Vector},
+    primitive::{AxisAlignedBox, Object, Primitive},
+    ray::Ray,
+};
 
 #[derive(Debug)]
 pub struct PointLight {
@@ -40,8 +42,8 @@ impl Primitive for PointLight {
         panic!("This should never be called")
     }
 
-    fn as_light(&self) -> Option<&Light> {
-        Some(self as &Light)
+    fn as_light(&self) -> Option<&dyn Light> {
+        Some(self as &dyn Light)
     }
 }
 

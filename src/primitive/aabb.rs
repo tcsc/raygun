@@ -1,5 +1,7 @@
-use math::{Point, Vector};
-use ray::Ray;
+use crate::{
+    math::{Point, Vector},
+    ray::Ray
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AxisAlignedBox {
@@ -67,8 +69,10 @@ impl Default for AxisAlignedBox {
 #[cfg(test)]
 mod test {
     use super::*;
-    use math::{point, vector};
-    use ray::Ray;
+    use crate::{
+        math::{point, vector},
+        ray::Ray
+    };
 
     fn aab(x0: f64, y0: f64, z0: f64, x1: f64, y1: f64, z1: f64)
         -> AxisAlignedBox

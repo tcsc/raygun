@@ -2,12 +2,16 @@ use std::boxed::Box;
 use std::fmt::Debug;
 use downcast;
 
-use ray::Ray;
-use math::{Point, Vector};
-use light::Light;
-use primitive::aabb::AxisAlignedBox;
-use primitive::Object;
-use scene::SceneVisitor;
+use crate::{
+    ray::Ray,
+    math::{Point, Vector},
+    light::Light,
+    primitive::{
+        aabb::AxisAlignedBox,
+        Object
+    },
+    scene::SceneVisitor
+};
 
 
 ///
@@ -18,7 +22,7 @@ pub trait Primitive : downcast::Any + Debug + Send + Sync {
     fn normal(&self, pt: Point) -> Vector;
 
     /// Is this primitive a light?
-    fn as_light(&self) -> Option<&Light> {
+    fn as_light(&self) -> Option<&dyn Light> {
         None
     }
 
@@ -26,7 +30,7 @@ pub trait Primitive : downcast::Any + Debug + Send + Sync {
     fn bounding_box(&self) -> AxisAlignedBox;
 
     /// Visitor entry point if the object has any children
-    fn accept_children(&self, object: &Object, visitor: &mut SceneVisitor) {}
+    fn accept_children(&self, object: &Object, visitor: &mut dyn SceneVisitor) {}
 }
 
-downcast!(Primitive);
+downcast!(dyn Primitive);

@@ -1,9 +1,13 @@
 use std::sync::Arc;
-use math::{Matrix, Point, Transform, Vector};
+use log::debug;
 
-use primitive::{AxisAlignedBox, Object, Primitive};
-use scene::SceneVisitor;
-use ray::Ray;
+use crate::{
+    math::{Matrix, Point, Transform, Vector},
+    scene::SceneVisitor,
+    ray::Ray
+};
+
+use super::{AxisAlignedBox, Object, Primitive};
 
 #[derive(Debug)]
 pub struct Union {
@@ -32,7 +36,7 @@ impl Primitive for Union {
             .fold(zero, |acc, b| acc.union(&b.bounding_box()))
     }
 
-    fn accept_children(&self, obj: &Object, v: &mut SceneVisitor) {
+    fn accept_children(&self, obj: &Object, v: &mut dyn SceneVisitor) {
         debug!("Union: accept_children!");
 
         let transform = match obj.transform {
@@ -61,9 +65,11 @@ impl Default for Union {
 #[cfg(test)]
 mod test {
     use super::Union;
-    use primitive::Primitive;
-    use math::{point, vector, IDENTITY};
-    use ray::Ray;
+    use crate::{
+        primitive::Primitive,
+        math::{point, vector, IDENTITY},
+        ray::Ray
+    };
 
     #[test]
     fn default() {

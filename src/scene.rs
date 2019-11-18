@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
-use primitive::Object;
-use camera::Camera;
-use colour;
-use light::{Light, PointLight};
-use colour::Colour;
-use ray::Ray;
-use math::Transform;
-
+use crate::{
+    primitive::Object,
+    camera::Camera,
+    colour::{self, Colour},
+    light::{Light, PointLight},
+    math::Transform,
+    ray::Ray
+};
+ 
 ///
 /// The toplevel owner of all objects and lights
 ///
@@ -39,7 +40,7 @@ impl Scene {
         self.objects.push(Arc::new(obj));
     }
 
-    pub fn visit(&self, v: &mut SceneVisitor) {
+    pub fn visit(&self, v: &mut dyn SceneVisitor) {
         for o in self.objects.iter() {
             v.visit(Arc::clone(o));
             o.accept(v);

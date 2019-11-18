@@ -1,129 +1,147 @@
-use nom::IResult;
+use nom::{
+    branch::alt,
+    error::ParseError,
+    lib::std::ops::RangeFrom,
+    multi::separated_list,
+    AsChar, 
+    InputIter, 
+    Slice,
+    IResult,
+};
 
-use material::Material;
-use math::{self, Vector, Transform};
-use primitive::{AxisAlignedBox, Box as _Box, Object, Plane, Sphere, Union};
-use units::degrees;
+use crate::{
+    material::Material,
+    math::{self, Vector, Transform},
+    primitive::{AxisAlignedBox, Box as _Box, Object, Plane, Sphere, Union},
+    units::degrees,
+};
 
-use std::str;
-use std::sync::Arc;
+use std::{
+    cell::RefCell,
+    sync::Arc
+};
 
-use super::material::material;
-use super::SceneState;
-use super::constructs::*;
-use super::lights::point_light;
-use super::transform::*;
+use super::{
+    material::material,
+    SceneRef,
+    constructs::*,
+    lights::point_light,
+    transform::*
+};
 
-fn sphere<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Object> {
-    let mut result = Sphere::default();
-    let mut m = Material::default();
-    let mut xform = None;
+fn sphere(scene: SceneRef) 
+    -> impl Fn(&[u8]) -> IResult<&[u8], Object>
+{
+    move |input| {
+        let mut result = Sphere::default();
+        let mut mat = Material::default();
+        let mut xform = None;
 
-    let rval = {
-        named_object!(input, "sphere",
-            block!(separated_list!(comma,
-                ws!(alt!(
-                    call!(named_value, "radius", real_number, set!(result.radius)) |
-                    call!(named_value, "centre", vector_literal, set!(result.centre)) |
-                    call!(named_value, "material", material, set!(m)) |
-                    call!(named_value, "transform", transform, |t| xform = Some(t))
-                ))
-            )
-        ))
-    };
+        let rval = named_object("sphere", 
+            block(separated_list(comma, alt((
+                named_value("radius", real_number, |r| result.radius = r),
+                named_value("centre", vector_literal, |c| result.centre = c),
+                named_value("material", material(scene), |m| mat = m),
+                named_value("transform", transform, |t| xform = Some(t)),
+            ))))
+        )(input);
 
-    rval.map(|_| {
-        as_object(result, m, xform)
-    })
+        rval.map(|(i, _)| {
+            (i, as_object(result, mat, xform))
+        })
+    }
 }
 
-fn _box<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Object> {
-    let mut b = AxisAlignedBox::default();
-    let mut m = Material::default();
-    let mut xform = None;
+fn _box(scene: SceneRef) 
+    -> impl Fn(&[u8]) -> IResult<&[u8], Object> 
+{
+    move |input| {
+        let mut b = AxisAlignedBox::default();
+        let mut mat = Material::default();
+        let mut xform = None;
 
-    let rval = {
-        named_object!(input, "box",
-            block!(separated_list!(comma,
-                ws!(alt!(
-                    call!(named_value, "upper", vector_literal, set!(b.upper)) |
-                    call!(named_value, "lower", vector_literal, set!(b.lower)) |
-                    call!(named_value, "material", material, set!(m)) |
-                    call!(named_value, "transform", transform, |t| xform = Some(t))
-                )))
-            ))
-    };
-
-    rval.map(|_| as_object(_Box::from(b), m, xform))
+        let rval = named_object("box",
+            block(separated_list(comma, alt((
+                named_value("upper", vector_literal, |u| b.upper = u),
+                named_value("lower", vector_literal, |l| b.lower = l),
+                named_value("material", material(scene), |m| mat = m),
+                named_value("transform", transform, |t| xform = Some(t)) 
+            ))))
+        )(input);
+        rval.map(|(i,_)| (i, as_object(_Box::from(b), mat, xform)))
+    }
 }
 
-fn plane<'a, 'b>(input: &'a [u8], scene: &'b SceneState) -> IResult<&'a [u8], Object> {
-    let mut p = Plane::default();
-    let mut m = Material::default();
-    let mut xform = None;
+fn plane(scene: SceneRef) 
+    -> impl Fn(&[u8]) -> IResult<&[u8], Object>
+{
+    move |input| {
+        let mut p = Plane::default();
+        let mut mat = Material::default();
+        let mut xform = None;
 
-    let rval = {
-        named_object!(input, "plane",
-            block!(separated_list!(comma,
-                ws!(alt!(
-                    call!(named_value, "normal", vector_literal,
-                         |n| p.normal = n.normalize()) |
-                    call!(named_value, "offset", real_number, set!(p.offset)) |
-                    call!(named_value, "material", material, set!(m)) |
-                    call!(named_value, "transform", transform, |t| xform = Some(t))
-                )))
-            ))
-    };
-
-    rval.map(|_| as_object(p, m, xform))
+        let rval = named_object("plane",
+            block(separated_list(comma, alt((
+                named_value("normal", vector_literal, |n| p.normal = n.normalize()),
+                named_value("offset", real_number, |o| p.offset = o),
+                named_value("material", material(scene), |m| mat = m),
+                named_value("transfomr", transform, |t| xform = Some(t))
+            ))))
+        )(input);
+        rval.map(|(i,_)| (i, as_object(p, mat, xform)))
+    }
 }
 
 ///
 /// Parses a group of objects, arbitrarily transformed. Transforms are applied in the order
 /// they're encountered, and nested groups are allowed.
 ///
-fn union<'a, 'b>(input: &'a [u8], state: &'b mut SceneState) -> IResult<&'a [u8], Object> {
-    use std::cell::RefCell;
+fn union(scene: SceneRef) 
+    -> impl Fn(&[u8]) -> IResult<&[u8], Object>
+{
+    move |input| {
+        let mut u = Union::default();
+        let mut mat = Material::default();
+        let mut xform = None;
 
-    let mut u = Union::default();
-    let mut xform = None;
+        let children = ws(block(primitives(scene)));
 
-    let rval = {
-        named_object!(input, "union",
-            block!(separated_list!(comma,
-                ws!(alt!(
-                    call!(named_value, "transform", transform, |t| xform = Some(t)) |
-                    call!(named_value, "objects",
-                          |i| {
-                            info!("parsing children...");
-                            let rval = ws!(i, block!(call!(primitives, state)));
-                            rval
-                          },
-                          set!(u.children))
-                ))
-            ))
-        )
+        let rval = named_object("union",
+            block(separated_list(comma, alt((
+                named_value("transform", transform, |t| xform = Some(t)),
+                named_value("material", material(scene), |m| mat = m),
+                named_value("objects", children, |ch| u.children = ch)
+            ))))
+        )(input);
+        rval.map(|(i,_)| (i, as_object(u, mat, xform)))    
+    }
+}
+
+fn primitive<'a>(scene: SceneRef) -> 
+    impl Fn(&'a [u8]) -> IResult<&'a [u8], Arc<Object>> 
+{
+    use nom::combinator::map;
+
+    let p = ws(alt((
+        sphere(scene),
+        _box(scene),
+        plane(scene),
+        point_light(scene),
+        union(scene)        
+    )));
+    
+    map(p, Arc::new)
+}
+
+pub fn primitives<'a>(scene: SceneRef)
+    -> impl Fn(&'a [u8]) -> IResult<&'a [u8], Vec<Arc<Object>>>
+{
+    use nom::{
+        combinator::map,
+        multi::many0,
     };
 
-    rval.map(|_| as_object(u, Material::default(), xform))
-}
-
-pub fn primitive<'a, 'b>(input: &'a[u8], state: &'b mut SceneState) -> IResult<&'a [u8], Object> {
-    ws!(input,
-        alt!(
-            call!(sphere, state) |
-            call!(_box, state) |
-            call!(plane, state) |
-            call!(point_light, state) |
-            call!(union, state)
-        )
-    )
-}
-
-pub fn primitives<'a, 'b>(input: &'a [u8], state: &'b mut SceneState)
-    -> IResult<&'a [u8], Vec<Arc<Object>>>
-{
-    many0!(input, map!(call!(primitive, state), |p| Arc::new(p)))
+    many0(primitive(scene))
 }
 
 #[cfg(test)]
@@ -137,13 +155,13 @@ mod test {
     #[test]
     fn parse_sphere() {
         use math::point;
-        use primitive::Sphere;
+        use crate::primitive::Sphere;
         use nom::IResult;
 
-        let state = SceneState::default();
-        let (_, obj) = sphere(
+        let state = RefCell::new(SceneState::default());
+        let (_, obj) = sphere(&state)(
             b"sphere { radius: 1.2340, centre: {1, 2, 3} }",
-            &state).unwrap();
+            ).unwrap();
 
         let s = obj.as_primitive::<Sphere>().unwrap();
         assert_eq!(s.radius, 1.234);
@@ -152,8 +170,10 @@ mod test {
 
     #[test]
     fn parse_sphere_default() {
-        use math::point;
-        use primitive::Sphere;
+        use crate::{
+            math::point,
+            primitive::Sphere
+        };
         use nom::IResult;
 
         let state = SceneState::default();
@@ -167,8 +187,10 @@ mod test {
 
     #[test]
     fn parse_box() {
-        use math::point;
-        use primitive::Box as _Box;
+        use crate::{
+            math::point,
+            primitive::Box as _Box
+        };
         use nom::IResult;
 
         let mut state = SceneState::default();
@@ -184,8 +206,10 @@ mod test {
 
     #[test]
     fn parse_plane() {
-        use math::point;
-        use primitive::Plane;
+        use crate::{
+            math::point,
+            primitive::Plane
+        };
         use nom::IResult;
 
         let mut state = SceneState::default();

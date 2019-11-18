@@ -1,4 +1,4 @@
-use math::{Point, Vector, Matrix};
+use crate::math::{Point, Vector, Matrix};
 
 ///
 /// Represents a ray through the scene, starting at `src` and heading along
@@ -42,7 +42,7 @@ impl Ray {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use math::{self, vector, point};
+	use crate::math::{self, vector, point};
 
 	#[test]
 	fn ray_construction() {

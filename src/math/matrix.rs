@@ -4,8 +4,10 @@ use std::fmt;
 use std::cmp;
 use std::ops;
 
-use math::Vector;
-use units::{Angle, Radians};
+use super::Vector;
+use crate::{
+    units::{Angle, Radians}
+};
 
 macro_rules! idx {
     ($i:expr, $j:expr) => { (($i * 4) + $j) }
@@ -249,7 +251,7 @@ impl<'a, 'b> ops::Mul<&'b Vector> for &'a Matrix {
 #[cfg(test)]
 mod test {
     use super::*;
-    use units::degrees;
+    use crate::units::degrees;
     use float_cmp::{Ulps, ApproxEqUlps};
 
     #[test]

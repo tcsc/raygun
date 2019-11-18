@@ -1,51 +1,74 @@
 use nom::IResult;
-
+use log::{debug};
 use super::constructs::*;
-use math::point;
-use units::degrees;
-use camera::Camera;
+use std::{
+    sync::Arc
+};
+
+use crate::{
+    math::point,
+    units::degrees,
+    camera::Camera
+};
+
+use nom::{
+    error::ParseError,
+    lib::std::ops::RangeFrom,
+    AsChar,
+    InputIter,
+    Slice,
+};
 
 // ////////////////////////////////////////////////////////////////////////////
 // Camera
 // ////////////////////////////////////////////////////////////////////////////
 
-pub fn camera<'a>(input: &'a [u8], state: &SceneState) -> IResult<&'a [u8], Camera> {
-    let mut loc = point(0.0, 0.0, 0.0);
-    let mut target = point(0.0, 0.0, 0.0);
-    let mut sky = point(0.0, 1.0, 0.0);
-    let mut fov = degrees(39.0).radians();
-
-    let rval = {
-        named_object!(input, "camera",
-            block!(separated_list!(comma,
-                 ws!(alt!(
-                    call!(named_value, "location", vector_literal, set!(loc)) |
-                    call!(named_value, "sky", vector_literal, set!(sky)) |
-                    call!(named_value, "look_at", vector_literal, set!(target)) |
-                    call!(named_value, "field_of_view", real_number,
-                        |f| { fov = degrees(f).radians(); }
-                 ))
-            )))
-        )
+pub fn camera(state: SceneRef) -> 
+    impl Fn(&[u8]) -> IResult<&[u8], Camera> 
+{
+    use nom::{
+        branch::alt,
+        multi::separated_list
     };
 
-    rval.map(|_| {
-        let dir = (target - loc).normalize();
-        let right = sky.cross(dir).normalize();
-        let up = dir.cross(right).normalize();
-        let aspect_ratio = state.width as f64 / state.height as f64;
-        let new_camera = Camera {
-            loc: loc,
-            dir: dir,
-            right: right,
-            up: up,
-            hfov: fov,
-            vfov: fov / aspect_ratio,
-        };
+    move |input| {
+        let mut loc = point(0.0, 0.0, 0.0);
+        let mut target = point(0.0, 0.0, 0.0);
+        let mut sky = point(0.0, 1.0, 0.0);
+        let mut fov = degrees(39.0).radians();
 
-        debug!("Camera definition {:?}", new_camera);
-        new_camera
-    })
+    
+        let camera_block = block(separated_list(comma,
+            ws(alt((
+                named_value("location", vector_literal, |l| loc = l),
+                named_value("sky", vector_literal, |s| sky = s),
+                named_value("look_at", vector_literal, |t| target = t),
+                named_value("field_of_view", real_number, |f| {
+                    fov = degrees(f).radians()
+                })        
+            )))
+        ));
+
+        named_object("camera", camera_block)(input).map(|(i, _)| {
+            let dir = (target - loc).normalize();
+            let right = sky.cross(dir).normalize();
+            let up = dir.cross(right).normalize();
+
+            let s = state.borrow();
+            let aspect_ratio = s.width as f64 / s.height as f64;
+            let new_camera = Camera {
+                loc: loc,
+                dir: dir,
+                right: right,
+                up: up,
+                hfov: fov,
+                vfov: fov / aspect_ratio,
+            };
+
+            debug!("Camera definition {:?}", new_camera);
+            (i, new_camera)
+        })
+    }
 }
 
 #[cfg(test)]
@@ -56,7 +79,7 @@ mod test {
 
     #[test]
     fn parse_minimal_camera() {
-        use math::{point, vector};
+        use crate::math::{point, vector};
         use std::f64::consts::FRAC_1_SQRT_2;
 
         let state = SceneState::default();
@@ -71,7 +94,7 @@ mod test {
         let expected_up = vector(-1.0, 2.0, 1.0).normalize();
 
         match camera(text.as_bytes(), &state) {
-            IResult::Done(_, cam) => {
+            IResult::Ok((_, cam)) => {
                 assert!(cam.loc.approx_eq(expected_loc),
                         "Expected {:?}, actual {:?}",
                         expected_loc,
@@ -93,11 +116,8 @@ mod test {
                 assert_eq!(degrees(39.0).radians(), cam.hfov);
 
                 assert_eq!(degrees(39.0 * (3.0 / 4.0)).radians(), cam.vfov);
-
-            }
-
-            IResult::Error(e) => assert!(false, "Parse failed: {:?}", e),
-            IResult::Incomplete(_) => assert!(false),
+            },            
+            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e)
         }
     }
 
@@ -111,7 +131,7 @@ mod test {
         }"#;
 
         match camera(text.as_bytes(), &state) {
-            IResult::Done(_, cam) => {
+            IResult::Ok((_, cam)) => {
                 assert!(cam.hfov.get().approx_eq_ulps(&(PI / 2.0), 2));
 
                 let vfov = 0.75 * PI / 2.0;
@@ -120,8 +140,7 @@ mod test {
                         vfov,
                         cam.vfov.get());
             }
-            IResult::Error(e) => assert!(false, "Parse failed: {:?}", e),
-            IResult::Incomplete(_) => assert!(false),
+            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e)
         }
     }
 
@@ -135,7 +154,7 @@ mod test {
         }"#;
 
         match camera(text.as_bytes(), &state) {
-            IResult::Done(_, cam) => {
+            IResult::Ok((_, cam)) => {
                 let hfov = PI / 2.0;
                 assert!(cam.hfov.get().approx_eq_ulps(&hfov, 2),
                         "Expected {:?}, actual {:?}",
@@ -148,8 +167,7 @@ mod test {
                         vfov,
                         cam.vfov.get());
             }
-            IResult::Error(e) => assert!(false, "Parse failed: {:?}", e),
-            IResult::Incomplete(_) => assert!(false),
+            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e)
         }
     }
 }

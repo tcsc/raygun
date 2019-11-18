@@ -1,7 +1,10 @@
 
-use math::{self, point, Point, Vector};
-use primitive::{AxisAlignedBox, Object, Primitive};
-use ray::Ray;
+use crate::{
+    math::{self, point, Point, Vector},
+    ray::Ray,
+};
+
+use super::{AxisAlignedBox, Object, Primitive};
 
 ///
 /// An axis-aligned box

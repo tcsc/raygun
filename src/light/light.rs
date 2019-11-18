@@ -1,5 +1,7 @@
-use math::Point;
-use colour::Colour;
+use crate::{
+    math::Point,
+    colour::Colour
+};
 
 /// What makes a light a light?
 pub trait Light : Sync {
