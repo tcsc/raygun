@@ -19,7 +19,7 @@ fn solid_pigment<'a>(input: &'a [u8]) -> IResult<&'a [u8], Pigment> {
 
     let rval = named_object("solid", 
         block(
-            named_value("colour", colour, |c| result = Pigment::Solid(c))
+            map_named_value("colour", colour, Pigment::Solid)
         )
     )(input);
 

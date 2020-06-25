@@ -33,8 +33,6 @@ pub struct SceneState {
     pub height: isize
 }
 
-pub type SceneRef = Arc<RefCell<SceneState>>;
-
 impl SceneState {
     pub fn new(width: isize, height: isize) -> SceneState {
         let base = Arc::new(Transform::default());
@@ -54,6 +52,23 @@ impl Default for SceneState {
         }
     }
 }
+
+#[derive(Clone)]
+pub struct SceneRef (Arc<RefCell<SceneState>>);
+
+impl SceneRef {
+    pub fn new(s: SceneState) -> SceneRef {
+        SceneRef(Arc::new(RefCell::new(s)))
+    }
+}
+
+impl std::ops::Deref for SceneRef {
+    type Target = RefCell<SceneState>;
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
 
 /*
  * A comma (potentially) surrounded by whitespace
@@ -117,20 +132,16 @@ where
     ws(preceded(tag(name), parser))
 }
 
-pub fn named_value<'a, T, U, Error, ParserFn, StoreFn>(
-        name: &'static str,
-        parser: ParserFn,
-        mut storefn: StoreFn) -> 
-    impl Fn(&'a [u8]) -> IResult<&'a [u8], U, Error>
+pub fn named_value<'a, T, Error, ParserFn>(
+    name: &'static str,
+    parser: ParserFn) -> 
+        impl Fn(&'a [u8]) -> IResult<&'a [u8], T, Error>
 where
     Error: ParseError<&'a [u8]>,
     ParserFn: Fn(&'a [u8]) -> IResult<&'a [u8], T, Error>,
-    StoreFn: FnMut(T) -> U
 {
     use nom::{
         bytes::streaming::tag,
-        combinator::map,
-        sequence::tuple,
         character::{
             complete::multispace0,
             streaming::char
@@ -138,14 +149,30 @@ where
     };
 
     move |input| {
-        let (i,_) = tag(name)(input)?;
+        let (i,_) = multispace0(input)?;
+        let (i,_) = tag(name)(i)?;
         let (i,_) = char(':')(i)?;
         let (i,_) = multispace0(i)?;
         let (i,v) = parser(i)?;
         let (i,_) = multispace0(i)?;
 
-        Ok((i, storefn(v)))
+        Ok((i,v))
     }
+}
+
+
+pub fn map_named_value<'a, T, U, Error, ParserFn, MapFn>(
+        name: &'static str,
+        parser: ParserFn,
+        mapfn: MapFn) -> 
+    impl Fn(&'a [u8]) -> IResult<&'a [u8], U, Error>
+where
+    Error: ParseError<&'a [u8]>,
+    ParserFn: Fn(&'a [u8]) -> IResult<&'a [u8], T, Error>,
+    MapFn: Fn(T) -> U
+{
+    use nom::combinator::map;
+    map(named_value(name, parser), mapfn)
 }
 
 /*

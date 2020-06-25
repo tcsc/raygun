@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    math::point,
+    math::{point, Point, Vector},
     units::degrees,
     camera::Camera
 };
@@ -31,43 +31,60 @@ pub fn camera(state: SceneRef) ->
         multi::separated_list
     };
 
-    move |input| {
-        let mut loc = point(0.0, 0.0, 0.0);
-        let mut target = point(0.0, 0.0, 0.0);
-        let mut sky = point(0.0, 1.0, 0.0);
-        let mut fov = degrees(39.0).radians();
+    enum Arg {
+        Loc(Point),
+        Sky(Vector),
+        LookAt(Point),
+        Fov(f64)
+    }
 
-    
+    move |input| {
         let camera_block = block(separated_list(comma,
             ws(alt((
-                named_value("location", vector_literal, |l| loc = l),
-                named_value("sky", vector_literal, |s| sky = s),
-                named_value("look_at", vector_literal, |t| target = t),
-                named_value("field_of_view", real_number, |f| {
-                    fov = degrees(f).radians()
-                })        
+                map_named_value("location", vector_literal, Arg::Loc),
+                map_named_value("sky", vector_literal, Arg::Sky),
+                map_named_value("look_at", vector_literal, Arg::LookAt),
+                map_named_value("field_of_view", real_number, Arg::Fov)        
             )))
         ));
 
-        named_object("camera", camera_block)(input).map(|(i, _)| {
-            let dir = (target - loc).normalize();
-            let right = sky.cross(dir).normalize();
-            let up = dir.cross(right).normalize();
+        named_object("camera", camera_block)(input)
+            .map(|(i, args)| {
+                let mut loc = point(0.0, 0.0, 0.0);
+                let mut target = point(0.0, 0.0, 0.0);
+                let mut sky = point(0.0, 1.0, 0.0);
+                let mut fov = degrees(39.0).radians();
+        
+                for arg in args {
+                    match arg {
+                        Arg::Loc(p) => loc = p,
+                        Arg::Sky(s) => sky = s,
+                        Arg::LookAt(p) => target = p,
+                        Arg::Fov(d) => fov = degrees(d).radians()
+                    }
+                }
 
-            let s = state.borrow();
-            let aspect_ratio = s.width as f64 / s.height as f64;
-            let new_camera = Camera {
-                loc: loc,
-                dir: dir,
-                right: right,
-                up: up,
-                hfov: fov,
-                vfov: fov / aspect_ratio,
-            };
+                (i, loc, target, sky, fov)
+            })
+            .map(|(i, loc, target, sky, fov)| {
+                let dir = (target - loc).normalize();
+                let right = sky.cross(dir).normalize();
+                let up = dir.cross(right).normalize();
 
-            debug!("Camera definition {:?}", new_camera);
-            (i, new_camera)
-        })
+                let s = state.borrow();
+                let aspect_ratio = s.width as f64 / s.height as f64;
+                let new_camera = Camera {
+                    loc: loc,
+                    dir: dir,
+                    right: right,
+                    up: up,
+                    hfov: fov,
+                    vfov: fov / aspect_ratio,
+                };
+
+                debug!("Camera definition {:?}", new_camera);
+                (i, new_camera)
+            })
     }
 }
 

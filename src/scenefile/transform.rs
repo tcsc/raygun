@@ -11,14 +11,14 @@ use super::constructs::*;
 
 
 fn translate<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform>  {
-    named_value("translate", vector_literal,
+    map_named_value("translate", vector_literal,
                 | Vector {x, y, z} | {
                     Transform::identity().translate(x, y, z)
                 })(input)
 }
 
 fn rotate<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform>  {
-    named_value("rotate", vector_literal,
+    map_named_value("rotate", vector_literal,
                 | Vector {x, y, z} | {
                     Transform::identity().rotate(degrees(x).radians(),
                                                  degrees(y).radians(),
@@ -27,7 +27,7 @@ fn rotate<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform>  {
 }
 
 fn scale<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform> {
-    named_value("scale", vector_literal,
+    map_named_value("scale", vector_literal,
                 | Vector { x, y, z } | {
                     Transform::identity().scale(x, y, z)
                 })(input)
@@ -40,16 +40,15 @@ pub fn transform<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform> {
         multi::separated_list
     };
 
-    let mut result = Transform::identity();
     let xform = alt((translate, rotate, scale));
-    let rval = 
-        block(
-            separated_list(comma, 
-                ws(map(xform, |t| { result = result.apply(&t) }))
-            )
-        )(input);
+    let transform_list = block(separated_list(comma, ws(xform)));
 
-    rval.map(|(i, _)| (i, result))
+    transform_list(input)
+        .map(|(i, txs)| {
+            let result = txs.iter().fold(
+                Transform::identity(), |xform, t| xform.apply(t));
+            (i, result)
+        })
 }
 
 #[cfg(test)]

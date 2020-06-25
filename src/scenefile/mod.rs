@@ -44,7 +44,7 @@ fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
         branch::alt
     };
 
-    let state = Arc::new(RefCell::new(SceneState::default()));
+    let state = SceneRef::new(SceneState::default());
 
     let (text, cam) = camera(state.clone())(input)?;
     primitives(state.clone())(text).map(|(i, objs)| {
@@ -63,18 +63,18 @@ pub enum SceneError {
 }
 
 fn to_template_error(e: liquid::Error) -> SceneError {
-    SceneError::Template(e.description().to_owned())
+    SceneError::Template(e.to_string())
 }
 
 fn scene_template(source: &str) -> Result<Scene, SceneError> {
     debug!("Compiling scene template...");
-    liquid::ParserBuilder::with_liquid()
+    liquid::ParserBuilder::with_stdlib()
         .build()
         .unwrap()
         .parse(source)
         .map_err(to_template_error)
         .and_then(|template| {
-            let mut globals = liquid::value::Object::new();
+            let mut globals = liquid::object!({});
 
             debug!("Rendering scene template...");
             template.render(&mut globals)

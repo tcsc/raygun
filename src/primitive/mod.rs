@@ -5,7 +5,7 @@ pub use self::{
     plane::Plane,
     union::Union,
     _box::Box,
-    object::Object
+    object::{Object, ObjectList}
 };
 
 use log::debug;

@@ -11,8 +11,8 @@ use nom::{
 
 use crate::{
     material::Material,
-    math::{self, Vector, Transform},
-    primitive::{AxisAlignedBox, Box as _Box, Object, Plane, Sphere, Union},
+    math::{self, Point, Vector, Transform},
+    primitive::{AxisAlignedBox, Box as _Box, Object, ObjectList, Plane, Sphere, Union},
     units::degrees,
 };
 
@@ -32,21 +32,37 @@ use super::{
 fn sphere(scene: SceneRef) 
     -> impl Fn(&[u8]) -> IResult<&[u8], Object>
 {
-    move |input| {
-        let mut result = Sphere::default();
-        let mut mat = Material::default();
-        let mut xform = None;
+    enum Arg {
+        Radius(f64),
+        Centre(Vector),
+        Mat(Material),
+        XForm(Transform)
+    }
 
+    move |input| {
         let rval = named_object("sphere", 
             block(separated_list(comma, alt((
-                named_value("radius", real_number, |r| result.radius = r),
-                named_value("centre", vector_literal, |c| result.centre = c),
-                named_value("material", material(scene), |m| mat = m),
-                named_value("transform", transform, |t| xform = Some(t)),
+                map_named_value("radius", real_number, Arg::Radius),
+                map_named_value("centre", vector_literal, Arg::Centre),
+                map_named_value("material", material(scene.clone()), Arg::Mat),
+                map_named_value("transform", transform, Arg::XForm),
             ))))
         )(input);
 
-        rval.map(|(i, _)| {
+        rval.map(|(i, args)| {
+            let mut result = Sphere::default();
+            let mut mat = Material::default();
+            let mut xform = None;
+
+            for arg in args {
+                match arg {
+                    Arg::Radius(r) => result.radius = r,
+                    Arg::Centre(c) => result.centre = c,
+                    Arg::Mat(m) => mat = m,
+                    Arg::XForm(x) => xform = Some(x)
+                }
+            }
+            
             (i, as_object(result, mat, xform))
         })
     }
@@ -55,6 +71,13 @@ fn sphere(scene: SceneRef)
 fn _box(scene: SceneRef) 
     -> impl Fn(&[u8]) -> IResult<&[u8], Object> 
 {
+    enum Arg {
+        Upper(Point),
+        Lower(Point),
+        Mat(Material),
+        XForm(Transform)
+    };
+
     move |input| {
         let mut b = AxisAlignedBox::default();
         let mut mat = Material::default();
@@ -62,10 +85,10 @@ fn _box(scene: SceneRef)
 
         let rval = named_object("box",
             block(separated_list(comma, alt((
-                named_value("upper", vector_literal, |u| b.upper = u),
-                named_value("lower", vector_literal, |l| b.lower = l),
-                named_value("material", material(scene), |m| mat = m),
-                named_value("transform", transform, |t| xform = Some(t)) 
+                map_named_value("upper", vector_literal, Arg::Upper),
+                map_named_value("lower", vector_literal, Arg::Lower),
+                map_named_value("material", material(scene.clone()), Arg::Mat),
+                map_named_value("transform", transform, Arg::XForm) 
             ))))
         )(input);
         rval.map(|(i,_)| (i, as_object(_Box::from(b), mat, xform)))
@@ -75,20 +98,39 @@ fn _box(scene: SceneRef)
 fn plane(scene: SceneRef) 
     -> impl Fn(&[u8]) -> IResult<&[u8], Object>
 {
-    move |input| {
-        let mut p = Plane::default();
-        let mut mat = Material::default();
-        let mut xform = None;
+    enum Arg {
+        Normal(Vector),
+        Offset(f64),
+        Material(Material),
+        XForm(Transform)
+    };
 
-        let rval = named_object("plane",
+    move |input| {
+        let plane_block = named_object("plane",
             block(separated_list(comma, alt((
-                named_value("normal", vector_literal, |n| p.normal = n.normalize()),
-                named_value("offset", real_number, |o| p.offset = o),
-                named_value("material", material(scene), |m| mat = m),
-                named_value("transfomr", transform, |t| xform = Some(t))
-            ))))
-        )(input);
-        rval.map(|(i,_)| (i, as_object(p, mat, xform)))
+                map_named_value("normal", vector_literal, Arg::Normal),
+                map_named_value("offset", real_number, Arg::Offset),
+                map_named_value("material", material(scene.clone()), Arg::Material),
+                map_named_value("transfomr", transform, Arg::XForm)
+            )))));
+        
+        plane_block(input)
+            .map(|(i, args)|{
+                let mut p = Plane::default();
+                let mut mat = Material::default();
+                let mut xform = None;
+        
+                for arg in args {
+                    match arg {
+                        Arg::Normal(n) => p.normal = n,
+                        Arg::Offset(o) => p.offset = o,
+                        Arg::Material(m) => mat = m,
+                        Arg::XForm(x) => xform = Some(x)
+                    }
+                }
+
+                (i, as_object(p, mat, xform))
+            })
     }
 }
 
@@ -99,21 +141,40 @@ fn plane(scene: SceneRef)
 fn union(scene: SceneRef) 
     -> impl Fn(&[u8]) -> IResult<&[u8], Object>
 {
+    enum Arg {
+        XForm(Transform),
+        Material(Material),
+        Children(ObjectList)
+    };
+
     move |input| {
-        let mut u = Union::default();
-        let mut mat = Material::default();
-        let mut xform = None;
+        let children = ws(block(primitives(scene.clone())));
 
-        let children = ws(block(primitives(scene)));
-
-        let rval = named_object("union",
+        let union_block = named_object("union",
             block(separated_list(comma, alt((
-                named_value("transform", transform, |t| xform = Some(t)),
-                named_value("material", material(scene), |m| mat = m),
-                named_value("objects", children, |ch| u.children = ch)
+                map_named_value("transform", transform, Arg::XForm),
+                map_named_value("material", material(scene.clone()),
+                                Arg::Material),
+                map_named_value("objects", children, Arg::Children)
             ))))
-        )(input);
-        rval.map(|(i,_)| (i, as_object(u, mat, xform)))    
+        );
+
+        union_block(input)
+            .map(|(i, args)| {
+                let mut u = Union::default();
+                let mut mat = Material::default();
+                let mut xform = None;
+        
+                for arg in args {
+                    match arg {
+                        Arg::Children(c) => u.children = c,
+                        Arg::Material(m) => mat = m,
+                        Arg::XForm(x) => xform = Some(x)
+                    }
+                }
+                
+                (i, as_object(u, mat, xform))
+            })
     }
 }
 
@@ -123,11 +184,11 @@ fn primitive<'a>(scene: SceneRef) ->
     use nom::combinator::map;
 
     let p = ws(alt((
-        sphere(scene),
-        _box(scene),
-        plane(scene),
-        point_light(scene),
-        union(scene)        
+        sphere(scene.clone()),
+        _box(scene.clone()),
+        plane(scene.clone()),
+        point_light(scene.clone()),
+        union(scene.clone())        
     )));
     
     map(p, Arc::new)

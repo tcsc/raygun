@@ -124,6 +124,7 @@ impl Object {
     }
 }
 
+pub type ObjectList = Vec<Arc<Object>>;
 
 #[cfg(test)]
 mod test {

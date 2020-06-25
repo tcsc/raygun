@@ -40,7 +40,7 @@ fn main() {
             error!("Scene file loading failed:");
             match err {
                 SceneError::FileError(e) => {
-                    error!("File IO error: {}", e.description());
+                    error!("File IO error: {:?}", e);
                 },
                 SceneError::Template(s) => {
                     error!("Template parse error: {}", s);

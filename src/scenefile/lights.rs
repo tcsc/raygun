@@ -6,7 +6,8 @@ use super::{
 use crate::{
     light::PointLight,
     material::Material,
-    math::Transform,
+    colour::Colour,
+    math::{Point, Transform},
     primitive::Object,
 };
 
@@ -29,19 +30,29 @@ pub fn point_light(scene: SceneRef) ->
         multi::separated_list
     };
 
-    move |input| {
-        let mut result = PointLight::default();
+    enum Args {
+        Col(Colour),
+        Loc(Point)
+    };
 
+    move |input| {
         let p = named_object("point_light",
             block(separated_list(comma, 
                 ws(alt((
-                    named_value("colour", colour, |c| result.colour = c),
-                    named_value("location", vector_literal, |l| result.loc = l)
+                    map_named_value("colour", colour, Args::Col),
+                    map_named_value("location", vector_literal, Args::Loc)
                 )))
             ))
         );
         
-        p(input).map(|(i, _)| {
+        p(input).map(|(i, args)| {
+            let mut result = PointLight::default();
+            for arg in args {
+                match arg {
+                    Args::Loc(l) => result.loc = l,
+                    Args::Col(c) => result.colour = c
+                }
+            }
             (i, as_object(result, Material::default(), None))
         })
     }

@@ -8,36 +8,77 @@ use nom::{
 
 use super::constructs::*;
 use self::pigment::pigment;
-use crate::material::{Finish, Material};
+use crate::material::{Finish, Material, Pigment};
 
-pub fn finish<'a>(input: &'a [u8]) -> IResult<&'a [u8], Finish> {
-    let mut result = Finish::default();
+pub fn finish<'a>(scene: SceneRef) -> 
+    impl Fn(&'a [u8]) -> IResult<&'a [u8], Finish> 
+{
+    enum Arg {
+        Opacity (f64),
+        Reflection (f64),
+        Ambient (f64),
+        Diffuse (f64),
+        Highlight (f64)
+    };
 
-    let rval = block(
-        separated_list(comma, ws(alt((
-            named_value("opacity", real_number, |o| result.opacity = o),
-            named_value("reflection", real_number, |r| result.reflection = r),
-            named_value("ambient", real_number, |a| result.ambient = a),
-            named_value("diffuse", real_number, |d| result.diffuse = d),
-            named_value("highlight", real_number, |h| result.highlight_hardness = h)
-        ))))
-    )(input);
-    rval.map(|(i, _)| (i, result))
+    move |input| {
+        let material_block = block(
+            separated_list(comma, ws(alt((
+                map_named_value("opacity", real_number, Arg::Opacity),
+                map_named_value("reflection", real_number, Arg::Reflection),
+                map_named_value("ambient", real_number, Arg::Ambient),
+                map_named_value("diffuse", real_number, Arg::Diffuse),
+                map_named_value("highlight", real_number, Arg::Highlight)
+            )))));
+
+        material_block(input)
+            .map(|(i, args)| {
+                let mut result = Finish::default();
+
+                for arg in args {
+                    match arg {
+                        Arg::Opacity(o) => result.opacity = o,
+                        Arg::Reflection(r) => result.reflection = r,
+                        Arg::Ambient(a) => result.ambient = a,
+                        Arg::Diffuse(d) => result.diffuse = d,
+                        Arg::Highlight(h) => result.highlight_hardness = h
+                    }
+                }
+
+                (i, result)
+            })
+    }
 }
 
 pub fn material<'a>(scene: SceneRef) -> 
     impl Fn(&'a [u8]) -> IResult<&'a [u8], Material> 
 {
-    move |input| {
-        let mut result = Material::default();
+    enum Arg {
+        Pigment(Pigment),
+        Finish(Finish)
+    };
 
-        let rval = block(
+    move |input| {
+        let material_block = block(
             separated_list(comma, ws(alt((
-                named_value("pigment", pigment(scene), |p| result.pigment = p),
-                named_value("finish", finish, |f| result.finish = f)
+                map_named_value("pigment", pigment(scene.clone()), Arg::Pigment),
+                map_named_value("finish", finish(scene.clone()), Arg::Finish)
             ))))
-        )(input);
-        rval.map(|(i, _)| (i, result))
+        );
+
+        material_block(input)
+            .map(|(i, args)| {
+                let mut result = Material::default();
+
+                for arg in args {
+                    match arg {
+                        Arg::Finish(f) => result.finish = f,
+                        Arg::Pigment(p) => result.pigment = p
+                    }
+                }
+
+                (i, result)
+            })
     }
 }
 
