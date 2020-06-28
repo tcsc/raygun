@@ -252,7 +252,6 @@ impl<'a, 'b> ops::Mul<&'b Vector> for &'a Matrix {
 mod test {
     use super::*;
     use crate::units::degrees;
-    use float_cmp::{Ulps, ApproxEqUlps};
 
     #[test]
     fn matrix_transpose() -> () {
@@ -293,6 +292,8 @@ mod test {
 
     #[test]
     fn rotation_about_x_matrix() {
+        use float_cmp::*;
+
         let m = x_rotation_matrix(degrees(90.0).radians());
         let expected = Matrix([1.0, 0.0,  0.0, 0.0,
                                0.0, 0.0, -1.0, 0.0,

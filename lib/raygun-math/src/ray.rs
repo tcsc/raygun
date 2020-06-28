@@ -41,8 +41,7 @@ impl Ray {
 
 #[cfg(test)]
 mod test {
-	use super::*;
-	use crate::math::{self, vector, point};
+	use crate::*;
 
 	#[test]
 	fn ray_construction() {
@@ -78,7 +77,7 @@ mod test {
 
     #[test]
     fn translation() {
-        let m = math::IDENTITY * math::translation_matrix(0.0, 1.0, 0.0);
+        let m = IDENTITY * translation_matrix(0.0, 1.0, 0.0);
         let r = Ray::new(point(0.0,0.0,-1.0), point(0.0, 0.0, 1.0));
         let rt = r.transform(&m);
 

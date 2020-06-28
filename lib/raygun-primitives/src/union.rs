@@ -62,12 +62,8 @@ impl Default for Union {
 
 #[cfg(test)]
 mod test {
-    use super::Union;
-    use crate::{
-        primitive::Primitive,
-        math::{point, vector, IDENTITY},
-        ray::Ray
-    };
+    use super::*;
+    use raygun_math::{point, vector};
 
     #[test]
     fn default() {

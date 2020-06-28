@@ -8,8 +8,6 @@ use crate::{
 
 use raygun_material::{Material};
 use raygun_math::{Point, Ray, Transform};
-
-
 use super::SurfaceInfo;
 
 #[derive(Debug)]
@@ -127,18 +125,14 @@ pub type ObjectList = Vec<Arc<Object>>;
 
 #[cfg(test)]
 mod test {
-    use super::Object;
-    use crate::math::point;
+    use crate::Object;
+    use raygun_math::{Transform, degrees, point};
+    use raygun_material::Material;
     use std::f64::consts::SQRT_2;
 
     #[test]
     fn bounding_box() {
-        use crate::{
-            math::Transform,
-            primitive::{AxisAlignedBox, _box::Box as _Box},
-            material::Material,
-            units::degrees
-        };
+        use crate::{AxisAlignedBox, _box::Box as _Box};
         use std::sync::Arc;    
 
         let obj = Object {

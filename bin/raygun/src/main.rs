@@ -1,27 +1,14 @@
 #![allow(unused)]
 
-#[macro_use]
-extern crate downcast;
-
 use std::error::Error;
 use std::path::PathBuf;
 
 use simplelog::{TermLogger, TerminalMode, LevelFilter, Config};
 use log::{self, info, debug, error};
 
-mod colour;
-mod light;
-mod math;
-mod units;
-mod primitive;
-mod camera;
-mod material;
-mod ray;
-mod scene;
-mod scenefile;
 mod render;
 
-use scenefile::SceneError;
+use raygun_scenefile::{load_scene, SceneError};
 
 #[cfg(not(test))]
 fn main() {
@@ -35,7 +22,7 @@ fn main() {
     let args = parse_args();
     info!("Dimensions {} x {}", args.width, args.height);
 
-    let s = scenefile::load_scene(args.scene_file)
+    let s = load_scene(args.scene_file)
         .unwrap_or_else(|err| {
             error!("Scene file loading failed:");
             match err {

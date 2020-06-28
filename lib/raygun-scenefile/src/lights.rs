@@ -3,22 +3,13 @@ use super::{
     colour::*
 };
 
-use raygun_math::{Point, Transform};
+use raygun_math::Point;
 use raygun_material::{Colour, Material};
 use raygun_primitives::{Object, PointLight};
 
-use nom::{
-    error::ParseError,
-    lib::std::ops::RangeFrom,
-    AsChar, 
-    InputIter, 
-    Slice,
-    IResult,
-};
+use nom::IResult;
 
-use std::cell::RefCell;
-
-pub fn point_light(scene: SceneRef) -> 
+pub fn point_light(_scene: SceneRef) -> 
     impl Fn(&[u8]) -> IResult<&[u8], Object>
 {
     use nom::{
@@ -35,7 +26,7 @@ pub fn point_light(scene: SceneRef) ->
         let p = named_object("point_light",
             block(separated_list(comma, 
                 ws(alt((
-                    map_named_value("colour", colour, Args::Col),
+                    map_named_value("colour", colour_literal, Args::Col),
                     map_named_value("location", vector_literal, Args::Loc)
                 )))
             ))
@@ -58,20 +49,17 @@ pub fn point_light(scene: SceneRef) ->
 #[cfg(test)]
 mod test {
     use super::*;
+    use raygun_math::point;
+    use raygun_material::Colour;
+    use raygun_primitives::PointLight;
 
     #[test]
     fn parse_point_light() {
-        use crate::{
-            colour::Colour,
-            math::point, 
-            light::PointLight
-        };
         use nom::IResult;
 
-        let mut state = SceneState::default();
+        let state = SceneRef::default();
 
-        match point_light(b"point_light { colour: {0.3, 0.4, 0.5}, location: {1, 2, 3} }",
-                          &state) {
+        match point_light(state)(b"point_light { colour: {0.3, 0.4, 0.5}, location: {1, 2, 3} }") {
             IResult::Ok((_, obj)) => {
                 let l = obj.as_primitive::<PointLight>().unwrap();
                 assert_eq!(l.colour, Colour::new(0.3, 0.4, 0.5));

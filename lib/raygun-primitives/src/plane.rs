@@ -48,9 +48,9 @@ impl Default for Plane {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::math::{point, vector};
+    use raygun_math::{point, vector};
     use std::f64::consts::SQRT_2;
-    use float_cmp::ApproxEqUlps;
+    use float_cmp::approx_eq;
 
     #[test]
     fn intersecting_ray_intersects() {
@@ -62,7 +62,7 @@ mod test {
         };
 
         let value = p.intersects(r).unwrap();
-        assert!(value.approx_eq_ulps(&SQRT_2, 5),
+        assert!(approx_eq!(f64, value, SQRT_2, ulps = 5),
                 "Expected {}, got {}", SQRT_2, value);
     }
 
@@ -80,8 +80,6 @@ mod test {
 
     #[test]
     fn normal() {
-        let r = Ray::new(point(0.0, 1.0, 0.0),
-                         vector(0.0, 0.0, 1.0).normalize());
         let p = Plane {
             normal: vector(0.0, 1.0, 0.0),
             offset: 0.0

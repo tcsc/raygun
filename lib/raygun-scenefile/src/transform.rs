@@ -1,8 +1,10 @@
 use nom::{
     IResult,
+    branch::alt,
+    multi::separated_list
 };
 
-use raygun_math::{self as math, Vector, Transform, translation_matrix, degrees};
+use raygun_math::{Vector, Transform, degrees};
 
 use super::constructs::*;
 
@@ -31,12 +33,6 @@ fn scale<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform> {
 }
 
 pub fn transform<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform> {
-    use nom::{
-        branch::alt,
-        combinator::map,
-        multi::separated_list
-    };
-
     let xform = alt((translate, rotate, scale));
     let transform_list = block(separated_list(comma, ws(xform)));
 
@@ -51,8 +47,7 @@ pub fn transform<'a>(input: &'a [u8]) -> IResult<&'a [u8], Transform> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nom;
-    use crate::units::degrees;
+    use raygun_math::degrees;
 
     #[test]
     fn parse_translate() {
@@ -98,7 +93,7 @@ mod test {
         }"#;
 
         let (_, t) = transform(text.as_bytes())
-            .map_err(|e| { println!("error: {}", e.description()); e })
+            .map_err(|e| { println!("error: {:?}", e); e })
             .unwrap();
         let expected = Transform::identity()
             .translate(1.0, 2.0, 3.0)

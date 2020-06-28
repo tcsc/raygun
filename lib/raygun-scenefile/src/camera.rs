@@ -1,19 +1,11 @@
 
 use log::{debug};
 use super::constructs::*;
-use std::sync::Arc;
 
 use raygun_camera::Camera;
 use raygun_math::{point, Point, Vector, degrees};
 
-use nom::{
-    error::ParseError,
-    lib::std::ops::RangeFrom,
-    AsChar,
-    InputIter,
-    Slice,
-    IResult,
-};
+use nom::IResult;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Camera
@@ -89,13 +81,13 @@ mod test {
     use super::*;
     use nom::IResult;
     use float_cmp::ApproxEqUlps;
+    use raygun_math::vector;
+     
 
     #[test]
     fn parse_minimal_camera() {
-        use crate::math::{point, vector};
-        use std::f64::consts::FRAC_1_SQRT_2;
 
-        let state = SceneState::default();
+        let state = SceneRef::default();
         let text = r#"camera {
             location: { 10.0, 10.0, -10.0 },
             look_at: {0.0, 0.0, 0.0}
@@ -106,7 +98,7 @@ mod test {
         let expected_right = vector(1.0, 0.0, 1.0).normalize();
         let expected_up = vector(-1.0, 2.0, 1.0).normalize();
 
-        match camera(text.as_bytes(), &state) {
+        match camera(state)(text.as_bytes()) {
             IResult::Ok((_, cam)) => {
                 assert!(cam.loc.approx_eq(expected_loc),
                         "Expected {:?}, actual {:?}",
@@ -137,13 +129,13 @@ mod test {
     #[test]
     fn honours_fov() {
         use std::f64::consts::PI;
-        let state = SceneState::default();
+        let state = SceneRef::default();
 
         let text = r#"camera {
             field_of_view: 90
         }"#;
 
-        match camera(text.as_bytes(), &state) {
+        match camera(state)(text.as_bytes()) {
             IResult::Ok((_, cam)) => {
                 assert!(cam.hfov.get().approx_eq_ulps(&(PI / 2.0), 2));
 
@@ -160,13 +152,13 @@ mod test {
     #[test]
     fn honours_aspect_ratio() {
         use std::f64::consts::PI;
-        let state = SceneState::new(1920, 1080);
+        let state = SceneRef::new(SceneState::new(1920, 1080));
 
         let text = r#"camera {
             field_of_view: 90
         }"#;
 
-        match camera(text.as_bytes(), &state) {
+        match camera(state)(text.as_bytes()) {
             IResult::Ok((_, cam)) => {
                 let hfov = PI / 2.0;
                 assert!(cam.hfov.get().approx_eq_ulps(&hfov, 2),

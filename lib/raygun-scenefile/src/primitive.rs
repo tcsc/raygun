@@ -1,25 +1,21 @@
+use std::sync::Arc;
+
 use nom::{
     branch::alt,
-    error::ParseError,
-    lib::std::ops::RangeFrom,
-    multi::separated_list,
-    AsChar, 
-    InputIter, 
-    Slice,
+    combinator::map,
+    multi::{many0, separated_list},
     IResult,
 };
 
-use raygun_math::{self as math, Point, Vector, Transform, Degrees};
-use raygun_material::{Colour, Material};
-use raygun_primitives::{AxisAlignedBox, Box as _Box, Object, ObjectList, Plane, Sphere, Union, PointLight};
-use raygun_math::degrees;
-
-use std::{
-    cell::RefCell,
-    sync::Arc
+use raygun_math::{Point, Vector, Transform};
+use raygun_material::Material;
+use raygun_primitives::{
+    AxisAlignedBox,
+    Box as _Box, Object, ObjectList, Plane, Sphere, Union,
+    //PointLight
 };
 
-use super::{
+use crate::{
     material::material,
     SceneRef,
     constructs::*,
@@ -77,19 +73,32 @@ fn _box(scene: SceneRef)
     };
 
     move |input| {
-        let mut b = AxisAlignedBox::default();
-        let mut mat = Material::default();
-        let mut xform = None;
-
-        let rval = named_object("box",
+        let parse_args = named_object("box",
             block(separated_list(comma, alt((
                 map_named_value("upper", vector_literal, Arg::Upper),
                 map_named_value("lower", vector_literal, Arg::Lower),
                 map_named_value("material", material(scene.clone()), Arg::Mat),
                 map_named_value("transform", transform, Arg::XForm) 
-            ))))
-        )(input);
-        rval.map(|(i,_)| (i, as_object(_Box::from(b), mat, xform)))
+            )))));
+
+        let construct_box = |args: Vec<Arg>| -> Object {
+            let mut aab = AxisAlignedBox::default();
+            let mut mat = Material::default();
+            let mut xform = None;
+
+            for arg in args {
+                match arg {
+                    Arg::Upper(r) => aab.upper = r,
+                    Arg::Lower(c) => aab.lower = c,
+                    Arg::Mat(m) => mat = m,
+                    Arg::XForm(x) => xform = Some(x)
+                }
+            }
+            
+            as_object(_Box::from(aab), mat, xform)
+        };
+
+        map(parse_args, construct_box)(input)
     }
 }
 
@@ -112,23 +121,24 @@ fn plane(scene: SceneRef)
                 map_named_value("transfomr", transform, Arg::XForm)
             )))));
         
-        plane_block(input)
-            .map(|(i, args)|{
-                let mut p = Plane::default();
-                let mut mat = Material::default();
-                let mut xform = None;
-        
-                for arg in args {
-                    match arg {
-                        Arg::Normal(n) => p.normal = n,
-                        Arg::Offset(o) => p.offset = o,
-                        Arg::Material(m) => mat = m,
-                        Arg::XForm(x) => xform = Some(x)
-                    }
+        let construct_plane = |args| {
+            let mut p = Plane::default();
+            let mut mat = Material::default();
+            let mut xform = None;
+    
+            for arg in args {
+                match arg {
+                    Arg::Normal(n) => p.normal = n.normalize(),
+                    Arg::Offset(o) => p.offset = o,
+                    Arg::Material(m) => mat = m,
+                    Arg::XForm(x) => xform = Some(x)
                 }
+            }
 
-                (i, as_object(p, mat, xform))
-            })
+            as_object(p, mat, xform)
+        };
+
+        map(plane_block, construct_plane)(input)
     }
 }
 
@@ -179,8 +189,6 @@ fn union(scene: SceneRef)
 fn primitive<'a>(scene: SceneRef) -> 
     impl Fn(&'a [u8]) -> IResult<&'a [u8], Arc<Object>> 
 {
-    use nom::combinator::map;
-
     let p = ws(alt((
         sphere(scene.clone()),
         _box(scene.clone()),
@@ -195,30 +203,23 @@ fn primitive<'a>(scene: SceneRef) ->
 pub fn primitives<'a>(scene: SceneRef)
     -> impl Fn(&'a [u8]) -> IResult<&'a [u8], Vec<Arc<Object>>>
 {
-    use nom::{
-        combinator::map,
-        multi::many0,
-    };
-
     many0(primitive(scene))
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+
     use std::ops::Deref;
-    use nom;
-    use math::vector;
     use float_cmp::ApproxEqUlps;
+    use raygun_math::{point, vector, degrees};
+    use raygun_primitives::{Box as _Box, Plane, Sphere};
 
     #[test]
     fn parse_sphere() {
-        use math::point;
-        use crate::primitive::Sphere;
-        use nom::IResult;
+        let state = SceneRef::default();
 
-        let state = RefCell::new(SceneState::default());
-        let (_, obj) = sphere(&state)(
+        let (_, obj) = sphere(state)(
             b"sphere { radius: 1.2340, centre: {1, 2, 3} }",
             ).unwrap();
 
@@ -229,33 +230,20 @@ mod test {
 
     #[test]
     fn parse_sphere_default() {
-        use crate::{
-            math::point,
-            primitive::Sphere
-        };
-        use nom::IResult;
-
-        let state = SceneState::default();
-        let (_, obj) = sphere(b"sphere { }", &state).unwrap();
+        let state = SceneRef::default();
+        let (_, obj) = sphere(state)(b"sphere { }").unwrap();
 
         let s = obj.as_primitive::<Sphere>().unwrap();
         assert_eq!(s.radius, 1.0);
         assert_eq!(s.centre, point(0.0, 0.0, 0.0));
     }
 
-
     #[test]
     fn parse_box() {
-        use crate::{
-            math::point,
-            primitive::Box as _Box
-        };
-        use nom::IResult;
+        let state = SceneRef::default();
 
-        let mut state = SceneState::default();
-
-        let (_, obj) = _box(b"box { lower: {1,2,3}, upper: {4.1, 5.2, 6.3} }",
-                            &mut state).unwrap();
+        let (_, obj) = 
+            _box(state)(b"box { lower: {1,2,3}, upper: {4.1, 5.2, 6.3} }").unwrap();
 
         let b = obj.as_primitive::<_Box>().unwrap();
         assert!(b.lower().approx_eq(point(1.0, 2.0, 3.0)),
@@ -265,16 +253,9 @@ mod test {
 
     #[test]
     fn parse_plane() {
-        use crate::{
-            math::point,
-            primitive::Plane
-        };
-        use nom::IResult;
+        let state = SceneRef::default();
 
-        let mut state = SceneState::default();
-
-        let (_, obj) = plane(b"plane { normal: {1.2, 3.4, 5.6}, offset: 7.8 }",
-                             &state)
+        let (_, obj) = plane(state)(b"plane { normal: {1.2, 3.4, 5.6}, offset: 7.8 }")
             .unwrap();
 
         let p = obj.as_primitive::<Plane>().unwrap();
@@ -303,8 +284,8 @@ mod test {
             }
         }"#;
 
-        let mut state = SceneState::default();
-        let (_, obj) = union(text.as_bytes(), &mut state).unwrap();
+        let state = SceneRef::default();
+        let (_, obj) = union(state)(text.as_bytes()).unwrap();
 
         let expected_transform = Transform::for_translation(1.0, 2.0, 3.0)
             .rotate(degrees(90.0).radians(),
@@ -336,8 +317,8 @@ mod test {
             }
         }"#;
 
-        let mut state = SceneState::default();
-        let (_, obj) = union(text.as_bytes(), &mut state).unwrap();
+        let state = SceneRef::default();
+        let (_, obj) = union(state)(text.as_bytes()).unwrap();
         let base = Transform::for_translation(1.0, 2.0, 3.0);
 
         let u = obj.as_primitive::<Union>().unwrap();

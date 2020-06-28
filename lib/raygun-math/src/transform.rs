@@ -86,8 +86,7 @@ impl Default for Transform {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::math::point;
+    use crate::*;
 
     #[test]
     fn rotation() {

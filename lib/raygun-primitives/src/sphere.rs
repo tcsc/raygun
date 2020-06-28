@@ -81,11 +81,7 @@ impl Primitive for Sphere {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        math::*,
-        ray::*,
-        primitive::primitive::*
-    };
+    use raygun_math::{Ray, vector};
 
     #[test]
     fn default() {

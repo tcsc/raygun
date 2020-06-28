@@ -66,10 +66,7 @@ impl Default for AxisAlignedBox {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        math::{point, vector},
-        ray::Ray
-    };
+    use raygun_math::{ point, vector, Ray };
 
     fn aab(x0: f64, y0: f64, z0: f64, x1: f64, y1: f64, z1: f64)
         -> AxisAlignedBox

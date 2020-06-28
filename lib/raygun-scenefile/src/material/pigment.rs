@@ -1,50 +1,45 @@
 
 use nom::{
     IResult,
-    branch::alt
+    bytes::complete::tag,
+    sequence::preceded,
 };
 
-use super::super::{
+use crate::{
     constructs::*,
-    colour::colour
+    colour::{colour}
 };
 
-use raygun_math::{Point, Transform};
-use raygun_material::{Colour, Material, Pigment};
-use raygun_primitives::{Object, PointLight};
+use raygun_material::Pigment;
 
-fn solid_pigment<'a>(input: &'a [u8]) -> IResult<&'a [u8], Pigment> {
-    let mut result = Pigment::default();
+fn solid_pigment<'a>(scene: SceneRef) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], Pigment> {
+   
+    let block_parser = block(
+        map_named_value("colour", colour(scene), Pigment::Solid));
 
-    let rval = named_object("solid", 
-        block(
-            map_named_value("colour", colour, Pigment::Solid)
-        )
-    )(input);
-
-    rval.map(|(i, _)| (i, result))
+    preceded(ws(tag("solid")), block_parser)
 }
 
 pub fn pigment<'a>(scene: SceneRef) -> 
     impl Fn(&'a [u8]) -> IResult<&'a [u8], Pigment>
 {        
     //ws(alt((solid_pigment, )))(input)
-    ws(solid_pigment)
+    ws(solid_pigment(scene))
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use raygun_material::Colour;
 
     #[test]
     fn solid_pigment() {
-        use crate::colour::Colour;
-
         let text = r#"solid {
             colour: { 0.1, 0.2, 0.3 }
         }"#;
+        let scene = SceneRef::default();
 
-        match pigment(text.as_bytes()) {
+        match pigment(scene)(text.as_bytes()) {
             IResult::Ok((_, p)) => {
                 let Pigment::Solid(c) = p;
                 assert_eq!(c, Colour::new(0.1, 0.2, 0.3))

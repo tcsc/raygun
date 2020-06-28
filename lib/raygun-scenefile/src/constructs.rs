@@ -1,23 +1,18 @@
-use std::str::from_utf8;
 use std::sync::Arc;
 use std::cell::RefCell;
 
 use nom::{
+    bytes::complete::tag,
+    character::complete::{ char as _char, multispace0 },
+    combinator::{map, value},
     error::ParseError,
-    lib::std::ops::RangeFrom,
-    AsChar, 
-    Compare,
-    InputIter,
-    InputLength,
-    InputTake,
-    InputTakeAtPosition,
+    sequence::{delimited, preceded, terminated, tuple},
     IResult,
-    Slice
 };  
 
 use raygun_material::Material;
 use raygun_primitives::{Object, Primitive};
-use raygun_math::{self as math, Matrix, Vector, Transform};
+use raygun_math::{Vector, Transform};
 
 // ////////////////////////////////////////////////////////////////////////////
 // State data
@@ -33,7 +28,7 @@ pub struct SceneState {
 
 impl SceneState {
     pub fn new(width: isize, height: isize) -> SceneState {
-        let base = Arc::new(Transform::default());
+        let _base = Arc::new(Transform::default());
         SceneState {
             width: width,
             height: height
@@ -43,7 +38,7 @@ impl SceneState {
 
 impl Default for SceneState {
     fn default() -> SceneState {
-        let base = Arc::new(Transform::default());
+        let _base = Arc::new(Transform::default());
         SceneState {
             width: 1024,
             height: 768
@@ -57,6 +52,11 @@ pub struct SceneRef (Arc<RefCell<SceneState>>);
 impl SceneRef {
     pub fn new(s: SceneState) -> SceneRef {
         SceneRef(Arc::new(RefCell::new(s)))
+    }
+
+    #[cfg(test)]
+    pub fn default() -> SceneRef {
+        SceneRef(Arc::new(RefCell::new(SceneState::default())))
     }
 }
 
@@ -75,8 +75,7 @@ pub fn comma<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], (), E>
 where
     E: ParseError<&'a [u8]>
 {
-    use nom::character::complete::char;    
-    ws(char(','))(input).map(|(i, _)| (i, ()))
+    value((), ws(_char(',')))(input)
 }
 
 pub fn ws<'a, T, E, ParserFn>(parser: ParserFn) -> 
@@ -85,11 +84,6 @@ where
     E: ParseError<&'a [u8]>,
     ParserFn: Fn(&'a [u8]) -> IResult<&'a [u8], T, E>
 {
-    use nom::{
-        sequence::delimited,
-        character::streaming::multispace0
-    };
-
     delimited(multispace0, parser, multispace0)
 }
 
@@ -99,13 +93,8 @@ where
     Parser: Fn(&'a [u8]) -> IResult<&'a [u8], T, Error>,
     Error: ParseError<&'a [u8]>
 {
-    use nom::{
-        sequence::delimited,
-        character::streaming::char
-    };
-
-    let begin = ws(char('{'));
-    let end = ws(char('}'));
+    let begin = ws(_char('{'));
+    let end = ws(_char('}'));
     delimited(begin, parser, end)
 }
 
@@ -118,16 +107,7 @@ where
     Error: ParseError<&'a [u8]>,
     ParserFn: Fn(&'a [u8]) -> IResult<&'a [u8], T, Error>
 {
-    use nom::{
-        sequence::{delimited, preceded},
-        bytes::streaming::tag,
-        character::{
-            complete::multispace0,
-            streaming::char
-        }
-    };
-
-    ws(preceded(tag(name), parser))
+    ws(preceded(ws(tag(name)), parser))
 }
 
 pub fn named_value<'a, T, Error, ParserFn>(
@@ -138,18 +118,10 @@ where
     Error: ParseError<&'a [u8]>,
     ParserFn: Fn(&'a [u8]) -> IResult<&'a [u8], T, Error>,
 {
-    use nom::{
-        bytes::streaming::tag,
-        character::{
-            complete::multispace0,
-            streaming::char
-        }
-    };
-
     move |input| {
         let (i,_) = multispace0(input)?;
         let (i,_) = tag(name)(i)?;
-        let (i,_) = char(':')(i)?;
+        let (i,_) = _char(':')(i)?;
         let (i,_) = multispace0(i)?;
         let (i,v) = parser(i)?;
         let (i,_) = multispace0(i)?;
@@ -169,52 +141,29 @@ where
     ParserFn: Fn(&'a [u8]) -> IResult<&'a [u8], T, Error>,
     MapFn: Fn(T) -> U
 {
-    use nom::combinator::map;
     map(named_value(name, parser), mapfn)
 }
 
 /*
  * A vector literal of the form {x, y, z}
  */
-
 pub fn vector_literal(input: &[u8]) -> IResult<&[u8], Vector> {
-    let (i, xx) = real_number(input)?;
-    let (i, yy) = comma(i).and_then(|(i, _)| real_number(i))?;
-    let (i, zz) = comma(i).and_then(|(i, _)| real_number(i))?;
-    
-    Ok((i, Vector::new(xx, yy, zz)))
+    let parse_x = terminated(real_number, comma);
+    let parse_y = terminated(real_number, comma);
+    let parse_z = real_number;
+    let parse_vector = block(tuple((parse_x, parse_y, parse_z)));
+
+    map(parse_vector, |(x, y, z)| Vector::new(x, y, z))(input)
 }
 
 // ////////////////////////////////////////////////////////////////////////////
 // Parsing numbers
 // ////////////////////////////////////////////////////////////////////////////
 
-fn to_real(sign: Option<char>, integral: &str, fraction: Option<&str>) -> f64 {
-    let s = match sign {
-        Some('+') | None => 1.0,
-        Some('-') => -1.0,
-        Some(c) => panic!("Unexpected sign char: {:?}", c),
-    };
-
-    let i = integral.parse::<i64>().unwrap() as f64;
-    let f = match fraction {
-        None => 0.0,
-        Some(digits) => {
-            let val = digits.parse::<i64>().unwrap() as f64;
-            let scale = (10.0 as f64).powi(digits.len() as i32);
-            val / scale
-        }
-    };
-    (s * (i + f))
-}
-
-pub fn digit_string<'a>(input: &'a [u8]) -> IResult<&'a [u8], &'a str> {
-    use std::str::from_utf8;
-    use nom::{
-        combinator::map,
-        character::complete::digit0,
-    };    
-    map(digit0, |bs| from_utf8(bs).unwrap())(input)   
+fn trace<T, E: std::fmt::Debug>(e: (T, E)) -> (T, E) 
+{
+    println!("Parse failure: {:?}", e.1);
+    e
 }
 
 /*
@@ -222,29 +171,8 @@ pub fn digit_string<'a>(input: &'a [u8]) -> IResult<&'a [u8], &'a str> {
  * exponential notation)
  */
 pub fn real_number(input: &[u8]) -> IResult<&[u8], f64>
-{
-    use std::str::from_utf8;
-    use nom::{
-        branch::alt,
-        combinator::{map, opt},
-        character::complete::{
-            char,
-            digit0,
-            digit1,
-        },
-        sequence::preceded,
-    };
-
-    let as_str = |s| from_utf8(s).unwrap();
-
-    let optional_sign = opt(alt((char('-'), char('+'))));
-    let fraction = opt(preceded(char('.'), digit_string));
-   
-    let (i, sign) = optional_sign(input)?;
-    let (i, int) = digit_string(i)?;
-    let (i, frac) = fraction(i)?;
-
-    Ok((i, to_real(sign, int, frac)))
+{   
+    nom::number::complete::double(input)
 }
 
 pub fn as_object<PrimitiveT: Primitive>(p: PrimitiveT,
@@ -260,59 +188,78 @@ pub fn as_object<PrimitiveT: Primitive>(p: PrimitiveT,
 #[cfg(test)]
 mod test {
     use super::*;
+    use nom::error::ErrorKind;
+    use raygun_math::vector;
+
+    macro_rules! comma_tests {
+        ($($name:ident: $text:expr,)*) => {
+            $(
+                #[test]
+                fn $name() {
+                    let expected = Ok(("".as_bytes(), ()));
+                    let actual = comma::<(&[u8], ErrorKind)>($text.as_bytes());
+                    assert_eq!(expected, actual);
+                }
+            )*
+        }
+    }
+
+    comma_tests!{
+        comma_bare: ",",
+        comma_leading_whitespace: " ,",
+        comma_trailing_whitespace: ", ",
+        comma_surrounding_whitespace: " , ",
+        comma_extended_whitespace: "\n,    ",
+    }
 
     #[test]
     fn parse_named_value() {
-        use super::{named_value, real_number};
-        use nom::IResult;
-
-        let mut f = 0.0;
-        assert_eq!(named_value(b"float: 42", "float", real_number, |c| { f = c; }),
-                   IResult::Ok((&b""[..], ())));
-
-        assert_eq!(f, 42.0);
+        let result = named_value("float",  real_number)(b"float: 42");
+        assert_eq!(result, Ok((&b""[..], 42.0)));
     }
 
-    #[test]
-    fn parse_digit_string() {
-        use nom::IResult;
-
-        assert!(!digit_string(b"").is_ok(), "Empty string");
-        assert!(!digit_string(b"abcd").is_ok(), "Text string");
-        assert_eq!(digit_string(b"1234"), IResult::Ok((&b""[..], "1234")));
-        assert_eq!(digit_string(b"1234a567"),
-                   IResult::Ok((&b"a567"[..], "1234")));
+    macro_rules! vector_literal_tests {
+        ($($name:ident: $text:expr, $expected:expr, $remainder:expr,)*) => {
+            $(
+                #[test]
+                fn $name() {
+                    let expected = Ok(($remainder.as_bytes(), $expected));
+                    let actual = vector_literal($text.as_bytes());
+                    assert_eq!(expected, actual);
+                }
+            )*
+        }
     }
 
-    #[test]
-    fn parse_vector_literal() {
-        use math::vector;
-        use nom::IResult;
-
-        let v = vector(1.0, 0.5, 0.0);
-        let expected = IResult::Ok((&b""[..], v));
-
-        assert_eq!(vector_literal(b"{1, 0.5, 0}"), expected);
-        assert_eq!(vector_literal(b"{ 1.0 , 0.5, 0.0}"), expected);
-        assert_eq!(vector_literal(b"{1.0,0.5,0.0 }"), expected);
+    vector_literal_tests!{
+        vector_packed: "{1,0.5, 0}", vector(1.0, 0.5, 0.0), "",
+        vector_trailing_spaces: "{1, 0.5, 0}", vector(1.0, 0.5, 0.0), "",
+        vector_extra_spaces: "{ 1.0 , 0.5, 0.0 }", vector(1.0, 0.5, 0.0), "",
     }
 
-    #[test]
-    fn parse_float() {
-        use nom::IResult;
+    macro_rules! float_tests {
+        ($($name:ident: $text:expr, $expected:expr, $remainder:expr,)*) => {
+            $(
+                #[test]
+                fn $name() {
+                    let expected = Ok(($remainder.as_bytes(), $expected));
+                    let actual = real_number($text.as_bytes());
+                    assert_eq!(expected, actual);
+                }
+            )*
+        }
+    }
 
-        assert!(real_number(b"").is_err(), "Empty string");
-        assert_eq!(real_number(b"163"), IResult::Ok((&b""[..], 163.0)));
-        assert_eq!(real_number(b"+163"), IResult::Ok((&b""[..], 163.0)));
-        assert_eq!(real_number(b"-163"), IResult::Ok((&b""[..], -163.0)));
-        assert_eq!(real_number(b"-163"), IResult::Ok((&b""[..], -163.0)));
-        assert_eq!(real_number(b"27.01"), IResult::Ok((&b""[..], 27.01)));
-        assert_eq!(real_number(b"-27.01"), IResult::Ok((&b""[..], -27.01)));
-
-        assert_eq!(real_number(b"-12.34 plus some other text"),
-                   IResult::Ok((&b" plus some other text"[..], -12.34)));
-
-        assert_eq!(real_number(b"42 plus some other text"),
-                   IResult::Ok((&b" plus some other text"[..], 42.0)));
+    float_tests! {
+        integer_bare: "163", 163.0, "", 
+        float_explicit_positive_int: "+163", 163.0, "",
+        float_explicit_negative_int: "-163.0", -163.0, "",
+        float_bare_decimal: "27.01", 27.01, "",
+        float_explicit_positive_decimal: "+27.01", 27.01, "",
+        float_explicit_negative_decimal: "-27.01", -27.01, "",
+        float_with_trailing_text: "-12.34 plus some other text", -12.34, 
+            " plus some other text",
+        integer_with_trailing_text: "42 plus some other text", 42.0,
+            " plus some other text",
     }
 }

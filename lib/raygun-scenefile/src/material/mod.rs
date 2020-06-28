@@ -10,7 +10,7 @@ use super::constructs::*;
 use self::pigment::pigment;
 use raygun_material::{Finish, Material, Pigment};
 
-pub fn finish<'a>(scene: SceneRef) -> 
+pub fn finish<'a>(_scene: SceneRef) -> 
     impl Fn(&'a [u8]) -> IResult<&'a [u8], Finish> 
 {
     enum Arg {
@@ -86,7 +86,6 @@ pub fn material<'a>(scene: SceneRef) ->
 mod test {
     use super::*;
     use float_cmp::ApproxEqUlps;
-    use crate::material::Finish;
 
     #[test]
     fn parses_completely_specified_finish() {
@@ -98,7 +97,9 @@ mod test {
             highlight: 0.5
         }"#;
 
-        match finish(text.as_bytes()) {
+        let scene = SceneRef::default();
+
+        match finish(scene)(text.as_bytes()) {
             IResult::Ok((_, actual)) => {
                 assert!(actual.opacity.approx_eq_ulps(&0.1, 5),
                         "Expected opacity = {}, got {}",

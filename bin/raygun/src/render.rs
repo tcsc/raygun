@@ -1,16 +1,12 @@
 use rayon;
 
-use crate::{
-    colour::{self, Colour},
-    math::{Vector, UnitVector, Point, point},
-    primitive::Object,
-    ray::Ray,
-    scene::{Scene, LightInfo},
-    material::Finish,
-};
-
 use image::{Rgba, RgbaImage};
 use log::{debug, error};
+
+use raygun_math::{Ray, Vector, UnitVector, Point, point};
+use raygun_material::{Colour, Finish, COLOUR_BLACK};
+use raygun_primitives::{Object};
+use raygun_scene::{Scene, LightInfo};
 
 pub struct RenderOptions {
     pub height: isize,
@@ -139,7 +135,7 @@ fn blinn_phong_highlight(viewdir: UnitVector,
 
         light_colour * intensity
     } else {
-       colour::BLACK
+       COLOUR_BLACK
     }
 }
 
@@ -250,7 +246,7 @@ fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<LightInfo>) -> Colour {
         contribs.push(contrib * weight);
     }
 
-    contribs.iter().fold(colour::BLACK, |sum, b| sum + (*b))
+    contribs.iter().fold(COLOUR_BLACK, |sum, b| sum + (*b))
 }
 
 
@@ -258,14 +254,10 @@ fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<LightInfo>) -> Colour {
 mod test {
     use super::*;
     use std::sync::Arc;
-    use crate::{
-        colour,
-        primitive::{Object, Primitive, Sphere},
-        scene::Scene,
-        math::{point, vector, Vector},
-        light::PointLight,
-        ray::Ray
-    };
+    use raygun_material::Colour;
+    use raygun_primitives::{Object, Primitive, Sphere, PointLight};
+    use raygun_scene::Scene;
+    use raygun_math::{point, Ray, vector, Vector};
 
     fn to_obj<P: Primitive>(p: P) -> Object {
         Object::from(Arc::new(p))

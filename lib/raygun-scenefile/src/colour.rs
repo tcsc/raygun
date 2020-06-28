@@ -2,27 +2,29 @@ use super::constructs::*;
 use raygun_material::Colour; 
 
 use nom::{
-    error::ParseError,
-    lib::std::ops::RangeFrom,
     IResult,
-    AsChar,
-    InputIter,
-    Slice
+    combinator::map,
+    sequence::{terminated, tuple}
 };
 
 // ////////////////////////////////////////////////////////////////////////////
 // Colours
 // ////////////////////////////////////////////////////////////////////////////
 
+pub fn colour<'a>(_scene: SceneRef) -> impl Fn(&'a [u8]) -> IResult<&[u8], Colour> {
+    colour_literal
+}
+
 /*
  * A colour literal of the form {r, g, b}
  */
-pub fn colour(input: &[u8]) -> IResult<&[u8], Colour> {
-    let (i, rr) = real_number(input)?;
-    let (i, gg) = comma(i).and_then(|(i, _)| real_number(i))?;
-    let (i, bb) = comma(i).and_then(|(i, _)| real_number(i))?;
+pub fn colour_literal(input: &[u8]) -> IResult<&[u8], Colour> {
+    let parse_r = terminated(real_number, comma);
+    let parse_g = terminated(real_number, comma);
+    let parse_b = real_number;
+    let parse_vector = block(tuple((parse_r, parse_g, parse_b)));
 
-    Ok((i, Colour::new(rr, gg, bb)))
+    map(parse_vector, |(r, g, b)| Colour::new(r, g, b))(input)
 }
 
 // ////////////////////////////////////////////////////////////////////////
@@ -32,21 +34,24 @@ pub fn colour(input: &[u8]) -> IResult<&[u8], Colour> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use raygun_material::Colour;
 
-    #[test]
-    fn parse_colour() {
-        use crate::colour::Colour;
-        use nom::IResult;
+    macro_rules! colour_literal_tests {
+        ($($name:ident: $text:expr, $expected:expr, $remainder:expr,)*) => {
+            $(
+                #[test]
+                fn $name() {
+                    let expected = Ok(($remainder.as_bytes(), $expected));
+                    let actual = colour_literal($text.as_bytes());
+                    assert_eq!(expected, actual);
+                }
+            )*
+        }
+    }
 
-        let c = Colour {
-            r: 1.0,
-            g: 0.5,
-            b: 0.0,
-        };
-        let expected = IResult::Ok((&b""[..], c));
-
-        assert_eq!(colour(b"{1, 0.5, 0}"), expected);
-        assert_eq!(colour(b"{ 1.0 , 0.5, 0.0}"), expected);
-        assert_eq!(colour(b"{1.0,0.5,0.0 }"), expected);
+    colour_literal_tests!{
+        literal_packed: "{1,0.5,0}", Colour {r: 1.0, g: 0.5, b: 0.0}, "",
+        literal_spaced: "{ 1.0 , 0.5, 0.0}", Colour {r: 1.0, g: 0.5, b: 0.0}, "",
+        literal_extra_spaced: "{ 1.0 , 0.5, 0.0}", Colour {r: 1.0, g: 0.5, b: 0.0}, "",
     }
 }

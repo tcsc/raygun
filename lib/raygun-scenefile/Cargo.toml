@@ -9,9 +9,13 @@ edition = "2018"
 [dependencies]
 liquid = "0.20"
 log = "0.4"
-nom = { version="5.1" }
+nom = { version="5" }
 raygun-camera = { path="../../lib/raygun-camera" }
 raygun-material = { path="../../lib/raygun-material" }
 raygun-math = { path="../../lib/raygun-math" }
 raygun-primitives = { path="../../lib/raygun-primitives" }
 raygun-scene = { path="../../lib/raygun-scene" }
+
+
+[dev-dependencies]
+float-cmp = "0.8"

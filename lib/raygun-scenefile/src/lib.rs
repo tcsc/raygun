@@ -1,4 +1,5 @@
 #![type_length_limit="2000000"]
+#![allow(dead_code)]
 
 mod constructs;
 mod camera;
@@ -10,13 +11,9 @@ mod transform;
 
 use std::{
     fs::File,
-    sync::Arc,
-    cell::RefCell,
     io::{self, Read},
-    prelude::*,
     path::Path,
     convert::From,
-    error::Error,
 };
 
 use nom::{
@@ -25,7 +22,6 @@ use nom::{
 use liquid;
 use log::{debug, info};
 
-use raygun_camera::Camera;
 use raygun_scene::Scene;
 
 use self::{
@@ -39,10 +35,6 @@ use self::{
 // ////////////////////////////////////////////////////////////////////////////
 
 fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
-    use nom::{
-        branch::alt
-    };
-
     let state = SceneRef::new(SceneState::default());
 
     let (text, cam) = camera(state.clone())(input)?;
@@ -55,6 +47,7 @@ fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
     })
 }
 
+#[derive(Debug)]
 pub enum SceneError {
     FileError(io::Error),
     Template(String),
@@ -94,7 +87,7 @@ fn scene_template(source: &str) -> Result<Scene, SceneError> {
                             let errors = vec![String::from(err.description())];
                             Err(SceneError::Scene(errors))
                         },
-                        IResult::Err(e) => {
+                        IResult::Err(_) => {
                             Err(SceneError::Scene(vec!["Unknown".to_owned()]))
                         }
                     }
@@ -120,15 +113,15 @@ pub fn load_scene<P: AsRef<Path>>(filename: P) -> Result<Scene, SceneError> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nom;
 
     #[test]
-    fn scene_template() {
-        super::load_scene("Hello");
+    fn no_such_file() {
+        assert!(load_scene("Hello").is_err());
     }
 
     #[test]
     fn scene_file() {
-        super::load_scene("scenes/example.rg");
+        let path = Path::new("../../scenes/example.rg").canonicalize().unwrap();
+        load_scene(&path).unwrap();
     }
 }
