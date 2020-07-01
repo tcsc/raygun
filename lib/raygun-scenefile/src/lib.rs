@@ -4,7 +4,6 @@
 mod constructs;
 mod camera;
 mod colour;
-mod lights;
 mod material;
 mod primitive;
 mod transform;

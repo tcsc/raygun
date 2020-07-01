@@ -1,7 +1,3 @@
-use super::{
-    constructs::*,
-    colour::*
-};
 
 use raygun_math::Point;
 use raygun_material::{Colour, Material};
@@ -9,7 +5,14 @@ use raygun_primitives::{Object, PointLight};
 
 use nom::IResult;
 
-pub fn point_light(_scene: SceneRef) -> 
+use crate::{
+    SceneRef,
+    constructs::*,
+    colour::*
+};
+
+
+pub fn parse(_scene: SceneRef) -> 
     impl Fn(&[u8]) -> IResult<&[u8], Object>
 {
     use nom::{
@@ -59,7 +62,7 @@ mod test {
 
         let state = SceneRef::default();
 
-        match point_light(state)(b"point_light { colour: {0.3, 0.4, 0.5}, location: {1, 2, 3} }") {
+        match super::parse(state)(b"point_light { colour: {0.3, 0.4, 0.5}, location: {1, 2, 3} }") {
             IResult::Ok((_, obj)) => {
                 let l = obj.as_primitive::<PointLight>().unwrap();
                 assert_eq!(l.colour, Colour::new(0.3, 0.4, 0.5));
