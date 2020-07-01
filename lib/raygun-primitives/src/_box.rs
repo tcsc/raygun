@@ -1,8 +1,4 @@
-
-use raygun_math::{
-    self as math,
-    point, Point, Vector, Ray,
-};
+use raygun_math::{self as math, point, Point, Ray, Vector};
 
 use super::{AxisAlignedBox, Primitive};
 
@@ -14,7 +10,7 @@ pub struct Box(AxisAlignedBox);
 
 impl Box {
     pub fn new(lower: Point, upper: Point) -> Box {
-        Box(AxisAlignedBox{ lower, upper })
+        Box(AxisAlignedBox { lower, upper })
     }
 
     pub fn from(b: AxisAlignedBox) -> Box {
@@ -34,7 +30,7 @@ impl Default for Box {
     fn default() -> Box {
         Box(AxisAlignedBox {
             lower: point(-0.5, -0.5, -0.5),
-            upper: point(0.5, 0.5, 0.5)
+            upper: point(0.5, 0.5, 0.5),
         })
     }
 }
@@ -54,12 +50,20 @@ impl Primitive for Box {
 
         const EPSILON: f64 = 1e-10;
 
-        if (pt.x - b.lower.x).abs() < EPSILON { NEG_X }
-        else if (pt.x - b.upper.x).abs() < EPSILON { POS_X }
-        else if (pt.y - b.lower.y).abs() < EPSILON { NEG_Y }
-        else if (pt.y - b.upper.y).abs() < EPSILON { POS_Y }
-        else if (pt.z - b.lower.z).abs() < EPSILON { NEG_Z }
-        else if (pt.z - b.upper.z).abs() < EPSILON { POS_Z }
-        else { panic!("Point not on box: {:?}", pt) }
+        if (pt.x - b.lower.x).abs() < EPSILON {
+            NEG_X
+        } else if (pt.x - b.upper.x).abs() < EPSILON {
+            POS_X
+        } else if (pt.y - b.lower.y).abs() < EPSILON {
+            NEG_Y
+        } else if (pt.y - b.upper.y).abs() < EPSILON {
+            POS_Y
+        } else if (pt.z - b.lower.z).abs() < EPSILON {
+            NEG_Z
+        } else if (pt.z - b.upper.z).abs() < EPSILON {
+            POS_Z
+        } else {
+            panic!("Point not on box: {:?}", pt)
+        }
     }
 }

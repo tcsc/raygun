@@ -1,46 +1,37 @@
-
-use raygun_math::Point;
 use raygun_material::{Colour, Material};
+use raygun_math::Point;
 use raygun_primitives::{Object, PointLight};
 
 use nom::IResult;
 
-use crate::{
-    SceneRef,
-    constructs::*,
-    colour::*
-};
+use crate::{colour::*, constructs::*, SceneRef};
 
-
-pub fn parse(_scene: SceneRef) -> 
-    impl Fn(&[u8]) -> IResult<&[u8], Object>
-{
-    use nom::{
-        branch::alt,
-        multi::separated_list
-    };
+pub fn parse(_scene: SceneRef) -> impl Fn(&[u8]) -> IResult<&[u8], Object> {
+    use nom::{branch::alt, multi::separated_list};
 
     enum Args {
         Col(Colour),
-        Loc(Point)
+        Loc(Point),
     };
 
     move |input| {
-        let p = named_object("point_light",
-            block(separated_list(comma, 
+        let p = named_object(
+            "point_light",
+            block(separated_list(
+                comma,
                 ws(alt((
                     map_named_value("colour", colour_literal, Args::Col),
-                    map_named_value("location", vector_literal, Args::Loc)
-                )))
-            ))
+                    map_named_value("location", vector_literal, Args::Loc),
+                ))),
+            )),
         );
-        
+
         p(input).map(|(i, args)| {
             let mut result = PointLight::default();
             for arg in args {
                 match arg {
                     Args::Loc(l) => result.loc = l,
-                    Args::Col(c) => result.colour = c
+                    Args::Col(c) => result.colour = c,
                 }
             }
             (i, as_object(result, Material::default(), None))
@@ -48,12 +39,11 @@ pub fn parse(_scene: SceneRef) ->
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use raygun_math::point;
     use raygun_material::Colour;
+    use raygun_math::point;
     use raygun_primitives::PointLight;
 
     #[test]

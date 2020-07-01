@@ -1,9 +1,8 @@
-
-use log::{debug};
 use super::constructs::*;
+use log::debug;
 
 use raygun_camera::Camera;
-use raygun_math::{point, Point, Vector, degrees};
+use raygun_math::{degrees, point, Point, Vector};
 
 use nom::IResult;
 
@@ -11,29 +10,25 @@ use nom::IResult;
 // Camera
 // ////////////////////////////////////////////////////////////////////////////
 
-pub fn camera(state: SceneRef) -> 
-    impl Fn(&[u8]) -> IResult<&[u8], Camera> 
-{
-    use nom::{
-        branch::alt,
-        multi::separated_list
-    };
+pub fn camera(state: SceneRef) -> impl Fn(&[u8]) -> IResult<&[u8], Camera> {
+    use nom::{branch::alt, multi::separated_list};
 
     enum Arg {
         Loc(Point),
         Sky(Vector),
         LookAt(Point),
-        Fov(f64)
+        Fov(f64),
     }
 
     move |input| {
-        let camera_block = block(separated_list(comma,
+        let camera_block = block(separated_list(
+            comma,
             ws(alt((
                 map_named_value("location", vector_literal, Arg::Loc),
                 map_named_value("sky", vector_literal, Arg::Sky),
                 map_named_value("look_at", vector_literal, Arg::LookAt),
-                map_named_value("field_of_view", real_number, Arg::Fov)        
-            )))
+                map_named_value("field_of_view", real_number, Arg::Fov),
+            ))),
         ));
 
         named_object("camera", camera_block)(input)
@@ -42,13 +37,13 @@ pub fn camera(state: SceneRef) ->
                 let mut target = point(0.0, 0.0, 0.0);
                 let mut sky = point(0.0, 1.0, 0.0);
                 let mut fov = degrees(39.0).radians();
-        
+
                 for arg in args {
                     match arg {
                         Arg::Loc(p) => loc = p,
                         Arg::Sky(s) => sky = s,
                         Arg::LookAt(p) => target = p,
-                        Arg::Fov(d) => fov = degrees(d).radians()
+                        Arg::Fov(d) => fov = degrees(d).radians(),
                     }
                 }
 
@@ -79,14 +74,12 @@ pub fn camera(state: SceneRef) ->
 #[cfg(test)]
 mod test {
     use super::*;
-    use nom::IResult;
     use float_cmp::ApproxEqUlps;
+    use nom::IResult;
     use raygun_math::vector;
-     
 
     #[test]
     fn parse_minimal_camera() {
-
         let state = SceneRef::default();
         let text = r#"camera {
             location: { 10.0, 10.0, -10.0 },
@@ -100,29 +93,37 @@ mod test {
 
         match camera(state)(text.as_bytes()) {
             IResult::Ok((_, cam)) => {
-                assert!(cam.loc.approx_eq(expected_loc),
-                        "Expected {:?}, actual {:?}",
-                        expected_loc,
-                        cam.loc);
+                assert!(
+                    cam.loc.approx_eq(expected_loc),
+                    "Expected {:?}, actual {:?}",
+                    expected_loc,
+                    cam.loc
+                );
 
-                assert!(cam.dir.approx_eq(expected_dir),
-                        "Expected {:?}, actual {:?}",
-                        expected_dir,
-                        cam.dir);
-                assert!(cam.right.approx_eq(expected_right),
-                        "Expected {:?}, actual {:?}",
-                        expected_right,
-                        cam.right);
-                assert!(cam.up.approx_eq(expected_up),
-                        "Expected {:?}, actual {:?}",
-                        expected_up,
-                        cam.up);
+                assert!(
+                    cam.dir.approx_eq(expected_dir),
+                    "Expected {:?}, actual {:?}",
+                    expected_dir,
+                    cam.dir
+                );
+                assert!(
+                    cam.right.approx_eq(expected_right),
+                    "Expected {:?}, actual {:?}",
+                    expected_right,
+                    cam.right
+                );
+                assert!(
+                    cam.up.approx_eq(expected_up),
+                    "Expected {:?}, actual {:?}",
+                    expected_up,
+                    cam.up
+                );
 
                 assert_eq!(degrees(39.0).radians(), cam.hfov);
 
                 assert_eq!(degrees(39.0 * (3.0 / 4.0)).radians(), cam.vfov);
-            },            
-            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e)
+            }
+            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e),
         }
     }
 
@@ -140,12 +141,14 @@ mod test {
                 assert!(cam.hfov.get().approx_eq_ulps(&(PI / 2.0), 2));
 
                 let vfov = 0.75 * PI / 2.0;
-                assert!(cam.vfov.get().approx_eq_ulps(&vfov, 2),
-                        "Expected {:?}, actual {:?}",
-                        vfov,
-                        cam.vfov.get());
+                assert!(
+                    cam.vfov.get().approx_eq_ulps(&vfov, 2),
+                    "Expected {:?}, actual {:?}",
+                    vfov,
+                    cam.vfov.get()
+                );
             }
-            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e)
+            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e),
         }
     }
 
@@ -161,18 +164,22 @@ mod test {
         match camera(state)(text.as_bytes()) {
             IResult::Ok((_, cam)) => {
                 let hfov = PI / 2.0;
-                assert!(cam.hfov.get().approx_eq_ulps(&hfov, 2),
-                        "Expected {:?}, actual {:?}",
-                        hfov,
-                        cam.hfov.get());
+                assert!(
+                    cam.hfov.get().approx_eq_ulps(&hfov, 2),
+                    "Expected {:?}, actual {:?}",
+                    hfov,
+                    cam.hfov.get()
+                );
 
                 let vfov = 0.5625 * PI / 2.0;
-                assert!(cam.vfov.get().approx_eq_ulps(&vfov, 2),
-                        "Expected {:?}, actual {:?}",
-                        vfov,
-                        cam.vfov.get());
+                assert!(
+                    cam.vfov.get().approx_eq_ulps(&vfov, 2),
+                    "Expected {:?}, actual {:?}",
+                    vfov,
+                    cam.vfov.get()
+                );
             }
-            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e)
+            IResult::Err(e) => assert!(false, "Parse failed: {:?}", e),
         }
     }
 }

@@ -3,10 +3,10 @@ use rayon;
 use image::{Rgba, RgbaImage};
 use log::{debug, error};
 
-use raygun_math::{Ray, Vector, UnitVector, Point, point};
 use raygun_material::{Colour, Finish, COLOUR_BLACK};
-use raygun_primitives::{Object};
-use raygun_scene::{Scene, LightInfo};
+use raygun_math::{point, Point, Ray, UnitVector, Vector};
+use raygun_primitives::Object;
+use raygun_scene::{LightInfo, Scene};
 
 pub struct RenderOptions {
     pub height: isize,
@@ -26,12 +26,9 @@ pub fn render(scene: &Scene, options: RenderOptions) -> Option<RgbaImage> {
 
     let pixel_count = options.width * options.height;
     let img = rayon::scope(move |s| {
-        let mut img = RgbaImage::new(
-            options.width as u32,
-            options.height as u32);
+        let mut img = RgbaImage::new(options.width as u32, options.height as u32);
 
-        let projection = scene.camera.projector(options.width,
-                                                options.height);
+        let projection = scene.camera.projector(options.width, options.height);
 
         let (tx, rx) = channel();
 
@@ -112,44 +109,48 @@ fn closest_intersecting_object<'a>(r: Ray, scene: &'a Scene) -> Option<Intersect
             }
         }
     }
-    intersecting_obj.map(|o| Intersection{
+    intersecting_obj.map(|o| Intersection {
         obj: &(*o),
         dist: min_dist,
-        point: intersection_point
+        point: intersection_point,
     })
 }
 
 ///
 /// Specular highlights using the blinn-phong shading model
 ///
-fn blinn_phong_highlight(viewdir: UnitVector,
-                         light_ray: Ray,
-                         surface_normal: UnitVector,
-                         light_colour: Colour,
-                         finish: &Finish) -> Colour {
+fn blinn_phong_highlight(
+    viewdir: UnitVector,
+    light_ray: Ray,
+    surface_normal: UnitVector,
+    light_colour: Colour,
+    finish: &Finish,
+) -> Colour {
     if !finish.highlight_hardness.is_infinite() {
         let half_vector = (light_ray.dir - viewdir).normalize();
-        let intensity = half_vector.dot(surface_normal)
-                                   .max(0.0)
-                                   .powf(finish.highlight_hardness);
+        let intensity = half_vector
+            .dot(surface_normal)
+            .max(0.0)
+            .powf(finish.highlight_hardness);
 
         light_colour * intensity
     } else {
-       COLOUR_BLACK
+        COLOUR_BLACK
     }
 }
 
 ///
 /// Calculates the light falling on the given point, from all lights in the scene
 ///
-fn light_surface(viewdir: UnitVector,
-                 surface_pt: Point,
-                 surface_normal: UnitVector,
-                 surface_colour: Colour,
-                 surface_finish: &Finish,
-                 scene: &Scene,
-                 lights: &Vec<LightInfo>) -> Colour {
-
+fn light_surface(
+    viewdir: UnitVector,
+    surface_pt: Point,
+    surface_normal: UnitVector,
+    surface_colour: Colour,
+    surface_finish: &Finish,
+    scene: &Scene,
+    lights: &Vec<LightInfo>,
+) -> Colour {
     let mut result = surface_colour * surface_finish.ambient;
     for light_info in lights.iter() {
         let light = light_info.light.as_light().unwrap();
@@ -167,10 +168,17 @@ fn light_surface(viewdir: UnitVector,
                 if !is_shadowed(light_ray, light_beam.length(), scene) {
                     // compute the diffuse lighting
                     let lambert_coeff = light_ray.dir.dot(surface_normal);
-                    let diffuse = surface_finish.diffuse * surface_colour * light_colour * lambert_coeff;
+                    let diffuse =
+                        surface_finish.diffuse * surface_colour * light_colour * lambert_coeff;
 
                     // compute the specular highlight
-                    let specular = blinn_phong_highlight(viewdir, light_ray, surface_normal, light_colour, surface_finish);
+                    let specular = blinn_phong_highlight(
+                        viewdir,
+                        light_ray,
+                        surface_normal,
+                        light_colour,
+                        surface_finish,
+                    );
                     result = result + diffuse + specular;
                 }
             }
@@ -182,8 +190,7 @@ fn light_surface(viewdir: UnitVector,
 fn is_shadowed(light_ray: Ray, light_distance: f64, scene: &Scene) -> bool {
     if let Some(ix) = closest_intersecting_object(light_ray, scene) {
         ix.dist < light_distance
-    }
-    else {
+    } else {
         false
     }
 }
@@ -196,10 +203,9 @@ fn reflect(inbound: Ray, pt: Point, normal: Vector) -> Ray {
     let offset = normal * 1e-12;
     Ray {
         src: reflected.src + offset,
-        dir: reflected.dir
+        dir: reflected.dir,
     }
 }
-
 
 ///
 /// Traces a ray from the ray source through the scene
@@ -207,7 +213,7 @@ fn reflect(inbound: Ray, pt: Point, normal: Vector) -> Ray {
 fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<LightInfo>) -> Colour {
     use std::collections::VecDeque;
 
-    const THRESHOLD : f64 = 1e-12;
+    const THRESHOLD: f64 = 1e-12;
 
     let mut contribs = Vec::new();
     let mut rays = VecDeque::new();
@@ -220,13 +226,15 @@ fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<LightInfo>) -> Colour {
             Some(ix) => {
                 let surface_point = ix.point;
                 let surface = ix.obj.surface_at(surface_point);
-                let colour = light_surface(ray.dir,
-                                           surface_point,
-                                           surface.normal,
-                                           surface.colour,
-                                           &surface.finish,
-                                           scene,
-                                           lights);
+                let colour = light_surface(
+                    ray.dir,
+                    surface_point,
+                    surface.normal,
+                    surface.colour,
+                    &surface.finish,
+                    scene,
+                    lights,
+                );
 
                 if surface.finish.reflection > 0.0 {
                     let new_weight = weight * surface.finish.reflection;
@@ -237,10 +245,8 @@ fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<LightInfo>) -> Colour {
                 }
 
                 colour
-            },
-            None => {
-                scene.sky(ray)
             }
+            None => scene.sky(ray),
         };
 
         contribs.push(contrib * weight);
@@ -249,15 +255,14 @@ fn trace(inbound_ray: Ray, scene: &Scene, lights: &Vec<LightInfo>) -> Colour {
     contribs.iter().fold(COLOUR_BLACK, |sum, b| sum + (*b))
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::sync::Arc;
     use raygun_material::Colour;
-    use raygun_primitives::{Object, Primitive, Sphere, PointLight};
+    use raygun_math::{point, vector, Ray, Vector};
+    use raygun_primitives::{Object, PointLight, Primitive, Sphere};
     use raygun_scene::Scene;
-    use raygun_math::{point, Ray, vector, Vector};
+    use std::sync::Arc;
 
     fn to_obj<P: Primitive>(p: P) -> Object {
         Object::from(Arc::new(p))
@@ -265,8 +270,10 @@ mod test {
 
     fn test_scene() -> Scene {
         let mut s = Scene::new();
-        let objs = vec!(to_obj(Sphere::new(point(0.0, 0.0, 0.0), 1.0)),
-                        to_obj(Sphere::new(point(0.0, 0.0, 1.0), 1.0)));
+        let objs = vec![
+            to_obj(Sphere::new(point(0.0, 0.0, 0.0), 1.0)),
+            to_obj(Sphere::new(point(0.0, 0.0, 1.0), 1.0)),
+        ];
         for obj in objs {
             s.add_object(obj)
         }
@@ -275,7 +282,7 @@ mod test {
     }
 
     fn floats_are_close(a: f64, b: f64, epsilon: f64) -> bool {
-        (a-b).abs() < epsilon
+        (a - b).abs() < epsilon
     }
 
     #[test]
@@ -294,8 +301,8 @@ mod test {
         let s = test_scene();
         let r = Ray::new(point(0.0, 0.0, -10.0), vector(0.0, 1.0, 1.0));
         match super::closest_intersecting_object(r, &s) {
-            None => {},
-            Some(_) => panic!("Expected an intersecting object")
+            None => {}
+            Some(_) => panic!("Expected an intersecting object"),
         }
     }
 
@@ -329,9 +336,7 @@ mod test {
         let mut s = Scene::new();
         let light_loc = point(100.0, 100.0, 100.0);
 
-        s.add_object(
-            to_obj(Sphere::new(point(110.0, 110.0, 11.0), 2.0))
-        );
+        s.add_object(to_obj(Sphere::new(point(110.0, 110.0, 11.0), 2.0)));
 
         let surface_pt = point(0.0, 0.0, 0.0);
         let light_beam = Vector::between(surface_pt, light_loc);

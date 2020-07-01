@@ -1,6 +1,6 @@
-use std::cmp;
-use raygun_math::{self as math, Point, Ray, Vector, point};
 use crate::{AxisAlignedBox, Primitive};
+use raygun_math::{self as math, point, Point, Ray, Vector};
+use std::cmp;
 
 ///
 /// A Sphere primitive
@@ -8,12 +8,15 @@ use crate::{AxisAlignedBox, Primitive};
 #[derive(Debug)]
 pub struct Sphere {
     pub centre: Point,
-    pub radius: f64
+    pub radius: f64,
 }
 
 impl Sphere {
     pub fn new(loc: Point, radius: f64) -> Sphere {
-        Sphere{ centre: loc, radius: radius }
+        Sphere {
+            centre: loc,
+            radius: radius,
+        }
     }
 }
 
@@ -21,7 +24,7 @@ impl Default for Sphere {
     fn default() -> Sphere {
         Sphere {
             centre: point(0.0, 0.0, 0.0),
-            radius: 1.0
+            radius: 1.0,
         }
     }
 }
@@ -44,15 +47,14 @@ impl Primitive for Sphere {
         let dist = Vector::between(r.src, self.centre);
         let b = r.dir.dot(dist);
         match (b * b) - dist.dot(dist) + (self.radius * self.radius) {
-            n if n < 0.0 => { None }
+            n if n < 0.0 => None,
             d2 => {
                 let d = d2.sqrt();
                 let t1 = b - d;
                 let t2 = b + d;
                 if t2 > 0.0 {
-                    Some( if t1 > 0.0 { t1 } else { t2 } )
-                }
-                else {
+                    Some(if t1 > 0.0 { t1 } else { t2 })
+                } else {
                     None
                 }
             }
@@ -60,15 +62,12 @@ impl Primitive for Sphere {
     }
 
     fn bounding_box(&self) -> AxisAlignedBox {
-        let (min_x, max_x) = math::sort(self.centre.x - self.radius,
-                                        self.centre.x + self.radius);
-        let (min_y, max_y) = math::sort(self.centre.y - self.radius,
-                                        self.centre.y + self.radius);
-        let (min_z, max_z) = math::sort(self.centre.z - self.radius,
-                                        self.centre.z + self.radius);
+        let (min_x, max_x) = math::sort(self.centre.x - self.radius, self.centre.x + self.radius);
+        let (min_y, max_y) = math::sort(self.centre.y - self.radius, self.centre.y + self.radius);
+        let (min_z, max_z) = math::sort(self.centre.z - self.radius, self.centre.z + self.radius);
         AxisAlignedBox {
             lower: point(min_x, min_y, min_z),
-            upper: point(max_x, max_y, max_z)
+            upper: point(max_x, max_y, max_z),
         }
     }
 
@@ -77,18 +76,17 @@ impl Primitive for Sphere {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use raygun_math::{Ray, vector};
+    use raygun_math::{vector, Ray};
 
     #[test]
     fn default() {
-        let s : Sphere = Default::default();
+        let s: Sphere = Default::default();
         let expected = Sphere {
             centre: point(0.0, 0.0, 0.0),
-            radius: 1.0
+            radius: 1.0,
         };
         assert_eq!(s, expected)
     }
@@ -99,8 +97,7 @@ mod test {
         let r = Ray::new(point(0.0, 0.0, -10.0), vector(0.0, 0.0, 1.0));
         if let Some(x) = s.intersects(r) {
             assert!(x - 90.0 < 0.0000001)
-        }
-        else {
+        } else {
             panic!("Did not intersect")
         }
     }

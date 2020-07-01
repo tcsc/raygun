@@ -1,13 +1,11 @@
 use crate::{AxisAlignedBox, Primitive};
 
-use raygun_math::{
-    Point, Vector, Ray, point, vector,
-};
+use raygun_math::{point, vector, Point, Ray, Vector};
 
 #[derive(Debug)]
 pub struct Plane {
     pub normal: Vector,
-    pub offset: f64
+    pub offset: f64,
 }
 
 impl Primitive for Plane {
@@ -15,10 +13,8 @@ impl Primitive for Plane {
         let n = self.offset - r.src.dot(self.normal);
         let d = r.dir.dot(self.normal);
         match n / d {
-            a if a > 0.0 => {
-                Some(a)
-            },
-            _ => None
+            a if a > 0.0 => Some(a),
+            _ => None,
         }
     }
 
@@ -31,7 +27,7 @@ impl Primitive for Plane {
 
         AxisAlignedBox {
             lower: point(NEG_INFINITY, NEG_INFINITY, NEG_INFINITY),
-            upper: point(INFINITY,INFINITY,INFINITY)
+            upper: point(INFINITY, INFINITY, INFINITY),
         }
     }
 }
@@ -40,7 +36,7 @@ impl Default for Plane {
     fn default() -> Plane {
         Plane {
             normal: vector(0.0, 1.0, 0.0),
-            offset: 0.0
+            offset: 0.0,
         }
     }
 }
@@ -48,31 +44,33 @@ impl Default for Plane {
 #[cfg(test)]
 mod test {
     use super::*;
+    use float_cmp::approx_eq;
     use raygun_math::{point, vector};
     use std::f64::consts::SQRT_2;
-    use float_cmp::approx_eq;
 
     #[test]
     fn intersecting_ray_intersects() {
-        let r = Ray::new(point(0.0, 1.0, 0.0),
-                         vector(0.0, -1.0, 1.0).normalize());
+        let r = Ray::new(point(0.0, 1.0, 0.0), vector(0.0, -1.0, 1.0).normalize());
         let p = Plane {
             normal: vector(0.0, 1.0, 0.0),
-            offset: 0.0
+            offset: 0.0,
         };
 
         let value = p.intersects(r).unwrap();
-        assert!(approx_eq!(f64, value, SQRT_2, ulps = 5),
-                "Expected {}, got {}", SQRT_2, value);
+        assert!(
+            approx_eq!(f64, value, SQRT_2, ulps = 5),
+            "Expected {}, got {}",
+            SQRT_2,
+            value
+        );
     }
 
     #[test]
     fn non_intersecting_ray_does_not() {
-        let r = Ray::new(point(0.0, 1.0, 0.0),
-                         vector(0.0, 0.0, 1.0).normalize());
+        let r = Ray::new(point(0.0, 1.0, 0.0), vector(0.0, 0.0, 1.0).normalize());
         let p = Plane {
             normal: vector(0.0, 1.0, 0.0),
-            offset: 0.0
+            offset: 0.0,
         };
 
         assert!(p.intersects(r).is_none());
@@ -82,10 +80,9 @@ mod test {
     fn normal() {
         let p = Plane {
             normal: vector(0.0, 1.0, 0.0),
-            offset: 0.0
+            offset: 0.0,
         };
 
-        assert_eq!(p.normal(point(100.0, 0.0, 100.0)),
-                   p.normal);
+        assert_eq!(p.normal(point(100.0, 0.0, 100.0)), p.normal);
     }
 }

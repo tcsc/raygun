@@ -4,15 +4,7 @@ mod transform;
 mod units;
 mod vector;
 
-pub use self::{
-    matrix::*,
-    ray::*,
-    transform::*,
-    units::*,
-    vector::*,
-    vector::unit_vectors,
-};
-
+pub use self::{matrix::*, ray::*, transform::*, units::*, vector::unit_vectors, vector::*};
 
 #[inline]
 pub fn min<T: PartialOrd>(a: T, b: T) -> T {

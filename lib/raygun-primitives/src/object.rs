@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
-use crate::{
-    Light,
-    AxisAlignedBox, 
-    Primitive
-};
+use crate::{AxisAlignedBox, Light, Primitive};
 
-use raygun_material::{Material};
-use raygun_math::{Point, Ray, Transform};
 use super::SurfaceInfo;
+use raygun_material::Material;
+use raygun_math::{Point, Ray, Transform};
 
 #[derive(Debug)]
 pub struct Object {
@@ -22,7 +18,7 @@ impl Object {
         Object {
             primitive: p,
             transform: None,
-            material: Material::default()
+            material: Material::default(),
         }
     }
 
@@ -33,14 +29,14 @@ impl Object {
     pub fn intersects(&self, r: Ray) -> Option<Point> {
         let r_ = match self.transform {
             Some(ref t) => r.transform(&t.inverse),
-            None => r
+            None => r,
         };
 
         self.primitive.intersects(r_).map(|n| {
             let object_space_point = r_.extend(n);
             match self.transform {
                 Some(ref t) => t.matrix * object_space_point,
-                None => object_space_point
+                None => object_space_point,
             }
         })
     }
@@ -52,7 +48,7 @@ impl Object {
         // convert the global point into the the local object space
         let local_pt = match self.transform {
             Some(ref t) => t.inverse * pt,
-            None => pt
+            None => pt,
         };
 
         // sample the surface
@@ -62,13 +58,13 @@ impl Object {
         let object_space_normal = self.primitive.normal(local_pt);
         let world_space_normal = match self.transform {
             Some(ref t) => object_space_normal.transform(&t.matrix),
-            None => object_space_normal
+            None => object_space_normal,
         };
 
         SurfaceInfo {
             normal: world_space_normal,
             colour,
-            finish
+            finish,
         }
     }
 
@@ -102,20 +98,24 @@ impl Object {
                     t.matrix * Point::new(l.x, u.y, u.z),
                 ];
 
-                let (min, max) = points.iter()
-                    .skip(1)
-                    .fold((points[0], points[0]),
-                          |(mut min, mut max), p|{
-                              min.x = f64::min(min.x, p.x);
-                              min.y = f64::min(min.y, p.y);
-                              min.z = f64::min(min.z, p.z);
-                              max.x = f64::max(max.x, p.x);
-                              max.y = f64::max(max.y, p.y);
-                              max.z = f64::max(max.z, p.z);
-                              (min, max)
-                          });
+                let (min, max) =
+                    points
+                        .iter()
+                        .skip(1)
+                        .fold((points[0], points[0]), |(mut min, mut max), p| {
+                            min.x = f64::min(min.x, p.x);
+                            min.y = f64::min(min.y, p.y);
+                            min.z = f64::min(min.z, p.z);
+                            max.x = f64::max(max.x, p.x);
+                            max.y = f64::max(max.y, p.y);
+                            max.z = f64::max(max.z, p.z);
+                            (min, max)
+                        });
 
-                AxisAlignedBox { lower: min, upper: max }
+                AxisAlignedBox {
+                    lower: min,
+                    upper: max,
+                }
             }
         }
     }
@@ -126,30 +126,29 @@ pub type ObjectList = Vec<Arc<Object>>;
 #[cfg(test)]
 mod test {
     use crate::Object;
-    use raygun_math::{Transform, degrees, point};
     use raygun_material::Material;
+    use raygun_math::{degrees, point, Transform};
     use std::f64::consts::SQRT_2;
 
     #[test]
     fn bounding_box() {
         use crate::{AxisAlignedBox, _box::Box as _Box};
-        use std::sync::Arc;    
+        use std::sync::Arc;
 
         let obj = Object {
             primitive: Arc::new(_Box::default()),
             material: Material::default(),
-            transform: Some(Box::new(
-                Transform::for_rotation(
-                    degrees(0.0).radians(),
-                    degrees(45.0).radians(),
-                    degrees(0.0).radians()))
-            ),
+            transform: Some(Box::new(Transform::for_rotation(
+                degrees(0.0).radians(),
+                degrees(45.0).radians(),
+                degrees(0.0).radians(),
+            ))),
         };
 
         let bb = obj.bounding_box();
-        let expected = AxisAlignedBox{
-            lower: point(-SQRT_2/2.0, -0.5, -SQRT_2/2.0),
-            upper: point( SQRT_2/2.0,  0.5,  SQRT_2/2.0)
+        let expected = AxisAlignedBox {
+            lower: point(-SQRT_2 / 2.0, -0.5, -SQRT_2 / 2.0),
+            upper: point(SQRT_2 / 2.0, 0.5, SQRT_2 / 2.0),
         };
 
         assert!(bb.lower.approx_eq(expected.lower));

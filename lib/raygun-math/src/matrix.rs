@@ -1,16 +1,16 @@
 //! Implements matrix operations suited for 3D graphics work.
 
-use std::fmt;
 use std::cmp;
+use std::fmt;
 use std::ops;
 
 use super::Vector;
-use crate::{
-    units::{Angle, Radians}
-};
+use crate::units::{Angle, Radians};
 
 macro_rules! idx {
-    ($i:expr, $j:expr) => { (($i * 4) + $j) }
+    ($i:expr, $j:expr) => {
+        (($i * 4) + $j)
+    };
 }
 
 ///
@@ -24,34 +24,26 @@ pub struct Matrix([f64; 16]);
 ///
 /// The identity matrix
 ///
-pub static IDENTITY: Matrix = Matrix([1.0, 0.0, 0.0, 0.0,
-                                      0.0, 1.0, 0.0, 0.0,
-                                      0.0, 0.0, 1.0, 0.0,
-                                      0.0, 0.0, 0.0, 1.0]);
+pub static IDENTITY: Matrix = Matrix([
+    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+]);
 
 ///
 /// An all-zero matrix
 ///
-pub static ZERO: Matrix = Matrix([0.0, 0.0, 0.0, 0.0,
-                                  0.0, 0.0, 0.0, 0.0,
-                                  0.0, 0.0, 0.0, 0.0,
-                                  0.0, 0.0, 0.0, 0.0]);
+pub static ZERO: Matrix = Matrix([
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+]);
 
 pub fn translation_matrix(x: f64, y: f64, z: f64) -> Matrix {
     Matrix([
-        1.0, 0.0, 0.0,   x,
-        0.0, 1.0, 0.0,   y,
-        0.0, 0.0, 1.0,   z,
-        0.0, 0.0, 0.0, 1.0
+        1.0, 0.0, 0.0, x, 0.0, 1.0, 0.0, y, 0.0, 0.0, 1.0, z, 0.0, 0.0, 0.0, 1.0,
     ])
 }
 
 pub fn scaling_matrix(x: f64, y: f64, z: f64) -> Matrix {
     Matrix([
-          x, 0.0, 0.0, 0.0,
-        0.0,   y, 0.0, 0.0,
-        0.0, 0.0,   z, 0.0,
-        0.0, 0.0, 0.0, 1.0
+        x, 0.0, 0.0, 0.0, 0.0, y, 0.0, 0.0, 0.0, 0.0, z, 0.0, 0.0, 0.0, 0.0, 1.0,
     ])
 }
 
@@ -59,10 +51,7 @@ pub fn x_rotation_matrix(theta: Angle<Radians>) -> Matrix {
     let s = theta.sin();
     let c = theta.cos();
     Matrix([
-        1.0, 0.0, 0.0, 0.0,
-        0.0,   c,  -s, 0.0,
-        0.0,   s,   c, 0.0,
-        0.0, 0.0, 0.0, 1.0
+        1.0, 0.0, 0.0, 0.0, 0.0, c, -s, 0.0, 0.0, s, c, 0.0, 0.0, 0.0, 0.0, 1.0,
     ])
 }
 
@@ -70,10 +59,7 @@ pub fn y_rotation_matrix(theta: Angle<Radians>) -> Matrix {
     let s = theta.sin();
     let c = theta.cos();
     Matrix([
-          c, 0.0,   s, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-         -s, 0.0,   c, 0.0,
-        0.0, 0.0, 0.0, 1.0
+        c, 0.0, s, 0.0, 0.0, 1.0, 0.0, 0.0, -s, 0.0, c, 0.0, 0.0, 0.0, 0.0, 1.0,
     ])
 }
 
@@ -81,10 +67,7 @@ pub fn z_rotation_matrix(theta: Angle<Radians>) -> Matrix {
     let s = theta.sin();
     let c = theta.cos();
     Matrix([
-          c,  -s, 0.0, 0.0,
-          s,   c, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
+        c, -s, 0.0, 0.0, s, c, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
     ])
 }
 
@@ -117,12 +100,14 @@ impl fmt::Debug for Matrix {
 
         for n in 0..4 {
             let row = n * 4;
-            match write!(f,
-                         "({}, {}, {}, {})",
-                         values[row],
-                         values[row + 1],
-                         values[row + 2],
-                         values[row + 3]) {
+            match write!(
+                f,
+                "({}, {}, {}, {})",
+                values[row],
+                values[row + 1],
+                values[row + 2],
+                values[row + 3]
+            ) {
                 e @ Err(_) => return e,
                 _ => (),
             }
@@ -180,10 +165,10 @@ fn row_col_dot_product(lhs: &Matrix, rhs: &Matrix, i: usize, j: usize) -> f64 {
     let &Matrix(ref a) = lhs;
     let &Matrix(ref b) = rhs;
 
-    (a[idx!(0,j)] * b[idx!(i,0)]) +
-    (a[idx!(1,j)] * b[idx!(i,1)]) +
-    (a[idx!(2,j)] * b[idx!(i,2)]) +
-    (a[idx!(3,j)] * b[idx!(i,3)])
+    (a[idx!(0, j)] * b[idx!(i, 0)])
+        + (a[idx!(1, j)] * b[idx!(i, 1)])
+        + (a[idx!(2, j)] * b[idx!(i, 2)])
+        + (a[idx!(3, j)] * b[idx!(i, 3)])
 }
 
 ///
@@ -196,7 +181,7 @@ impl ops::Mul<Matrix> for Matrix {
         let Matrix(mut result) = ZERO;
         for i in 0usize..4usize {
             for j in 0usize..4usize {
-                result[idx!(i,j)] = row_col_dot_product(&self, &rhs, i, j)
+                result[idx!(i, j)] = row_col_dot_product(&self, &rhs, i, j)
             }
         }
         return Matrix(result);
@@ -226,22 +211,22 @@ impl<'a, 'b> ops::Mul<&'b Vector> for &'a Matrix {
 
     fn mul(self, rhs: &'b Vector) -> Vector {
         let &Matrix(ref m) = self;
-        let x = (m[idx!(0,0)] * rhs.x) +
-            (m[idx!(0,1)] * rhs.y) +
-            (m[idx!(0,2)] * rhs.z) +
-            m[idx!(0,3)];
+        let x = (m[idx!(0, 0)] * rhs.x)
+            + (m[idx!(0, 1)] * rhs.y)
+            + (m[idx!(0, 2)] * rhs.z)
+            + m[idx!(0, 3)];
 
-        let y = (m[idx!(1,0)] * rhs.x) +
-            (m[idx!(1,1)] * rhs.y) +
-            (m[idx!(1,2)] * rhs.z) +
-            m[idx!(1,3)];
+        let y = (m[idx!(1, 0)] * rhs.x)
+            + (m[idx!(1, 1)] * rhs.y)
+            + (m[idx!(1, 2)] * rhs.z)
+            + m[idx!(1, 3)];
 
-        let z = (m[idx!(2,0)] * rhs.x) +
-            (m[idx!(2,1)] * rhs.y) +
-            (m[idx!(2,2)] * rhs.z) +
-            m[idx!(2,3)];
+        let z = (m[idx!(2, 0)] * rhs.x)
+            + (m[idx!(2, 1)] * rhs.y)
+            + (m[idx!(2, 2)] * rhs.z)
+            + m[idx!(2, 3)];
 
-        let w = m[idx!(3,3)];
+        let w = m[idx!(3, 3)];
         let inv_w = 1.0 / w;
 
         Vector::new(x * inv_w, y * inv_w, z * inv_w)
@@ -295,29 +280,32 @@ mod test {
         use float_cmp::*;
 
         let m = x_rotation_matrix(degrees(90.0).radians());
-        let expected = Matrix([1.0, 0.0,  0.0, 0.0,
-                               0.0, 0.0, -1.0, 0.0,
-                               0.0, 1.0,  0.0, 0.0,
-                               0.0, 0.0, 0.0, 1.0]);
+        let expected = Matrix([
+            1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ]);
 
         for i in 0..4 {
             for j in 0..4 {
                 let actual = m[(i, j)];
                 let exp = expected[(i, j)];
                 if exp == 0.0 {
-                    assert!(actual < 1e-16,
-                            "[{},{}]: expected {}, got {}",
-                            i,
-                            j,
-                            exp,
-                            actual);
+                    assert!(
+                        actual < 1e-16,
+                        "[{},{}]: expected {}, got {}",
+                        i,
+                        j,
+                        exp,
+                        actual
+                    );
                 } else {
-                    assert!(exp.approx_eq_ulps(&actual, 100),
-                            "[{},{}]: expected {}, got {}",
-                            i,
-                            j,
-                            exp,
-                            actual);
+                    assert!(
+                        exp.approx_eq_ulps(&actual, 100),
+                        "[{},{}]: expected {}, got {}",
+                        i,
+                        j,
+                        exp,
+                        actual
+                    );
                 }
             }
         }

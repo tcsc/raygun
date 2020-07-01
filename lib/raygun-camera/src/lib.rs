@@ -4,12 +4,12 @@ use log::debug;
 
 #[derive(Debug)]
 pub struct Camera {
-    pub loc:  Point,
-    pub dir:  Vector,
-    pub up:   Vector,
+    pub loc: Point,
+    pub dir: Vector,
+    pub up: Vector,
     pub right: Vector,
     pub hfov: Angle<Radians>,
-    pub vfov: Angle<Radians>
+    pub vfov: Angle<Radians>,
 }
 
 impl Default for Camera {
@@ -19,23 +19,29 @@ impl Default for Camera {
     ///
     fn default() -> Camera {
         Camera {
-            loc: point( 0.0, 0.0, 0.0),
+            loc: point(0.0, 0.0, 0.0),
             dir: vector(0.0, 0.0, 1.0),
-            up:  vector(0.0, 1.0, 0.0),
+            up: vector(0.0, 1.0, 0.0),
             right: vector(1.0, 0.0, 0.0),
             hfov: degrees(39.0).radians(),
-            vfov: degrees(27.0).radians()
+            vfov: degrees(27.0).radians(),
         }
     }
 }
 
 impl Camera {
     pub fn with_loc(&self, x: f64, y: f64, z: f64) -> Camera {
-        Camera{ loc: point(x, y, z), .. *self }
+        Camera {
+            loc: point(x, y, z),
+            ..*self
+        }
     }
 
     pub fn with_dir(&self, x: f64, y: f64, z: f64) -> Camera {
-        Camera{ dir: vector(x, y, z), .. *self }
+        Camera {
+            dir: vector(x, y, z),
+            ..*self
+        }
     }
 
     pub fn projector(&self, width: isize, height: isize) -> Projection {
@@ -52,12 +58,12 @@ impl Camera {
 
         let plane_centre = self.loc + self.dir;
 
-        let half_hfov : Angle<Radians> = self.hfov / 2.0;
+        let half_hfov: Angle<Radians> = self.hfov / 2.0;
         let width_v = self.right * half_hfov.tan();
         let centre_left = plane_centre - width_v;
         let dx = (width_v * 2) / width;
 
-        let half_vfov : Angle<Radians> = self.vfov / 2.0;
+        let half_vfov: Angle<Radians> = self.vfov / 2.0;
         let height_v = self.up * half_vfov.tan();
         let top_left = centre_left + height_v;
         let dy = (-height_v * 2) / height;
@@ -101,19 +107,19 @@ mod test {
         let c = Camera::default().with_loc(0.0, 0.0, -1.0);
         let p = c.projector(640, 480);
 
-        let topleft = p.ray_for(0,0);
+        let topleft = p.ray_for(0, 0);
         assert_eq!(topleft.src, c.loc);
         assert!(topleft.dir.x < 0.0);
         assert!(topleft.dir.y > 0.0);
         assert!(topleft.dir.z < 1.0);
 
-        let topright = p.ray_for(639,0);
+        let topright = p.ray_for(639, 0);
         assert_eq!(topright.src, c.loc);
         assert!(topright.dir.x > 0.0);
         assert!(topright.dir.y > 0.0);
         assert!(topright.dir.z < 1.0);
 
-        let bottomleft = p.ray_for(0,479);
+        let bottomleft = p.ray_for(0, 479);
         assert_eq!(bottomleft.src, c.loc);
         assert!(bottomleft.dir.x < 0.0);
         assert!(bottomleft.dir.y < 0.0);

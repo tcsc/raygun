@@ -4,25 +4,25 @@ use raygun_camera::Camera;
 use raygun_material::{Colour, COLOUR_BLACK};
 use raygun_math::{Ray, Transform};
 use raygun_primitives::{Object, Visitor};
- 
+
 ///
 /// The toplevel owner of all objects and lights
 ///
 pub struct Scene {
     pub objects: Vec<Arc<Object>>,
-    pub camera: Camera
+    pub camera: Camera,
 }
 
 pub struct LightInfo {
     pub transform: Transform,
-    pub light: Arc<Object>
+    pub light: Arc<Object>,
 }
 
 impl Scene {
     pub fn new() -> Scene {
         Scene {
             camera: Camera::default(),
-            objects: Vec::new()
+            objects: Vec::new(),
         }
     }
 
@@ -40,7 +40,7 @@ impl Scene {
     pub fn lights<'a>(&'a self) -> Vec<LightInfo> {
         struct LightVisitor {
             transform_stack: Vec<Transform>,
-            lights: Vec<LightInfo>
+            lights: Vec<LightInfo>,
         }
 
         impl Visitor for LightVisitor {
@@ -58,7 +58,7 @@ impl Scene {
                     let t = self.transform_stack.last().unwrap();
                     self.lights.push(LightInfo {
                         transform: t.clone(),
-                        light: obj
+                        light: obj,
                     });
                 }
             }
@@ -66,7 +66,7 @@ impl Scene {
 
         let mut visitor = LightVisitor {
             transform_stack: vec![Transform::identity()],
-            lights: Vec::new()
+            lights: Vec::new(),
         };
 
         self.visit(&mut visitor);

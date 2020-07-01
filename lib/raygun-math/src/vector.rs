@@ -1,10 +1,14 @@
-use std::{fmt, cmp, ops};
+use std::{cmp, fmt, ops};
 
 use super::Matrix;
 
 /// Defines an immutable 3D vector.
 #[derive(Default, Clone, Copy)]
-pub struct Vector { pub x: f64, pub y: f64, pub z: f64 }
+pub struct Vector {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
 
 /// Vector construction function
 pub fn vector(x: f64, y: f64, z: f64) -> Vector {
@@ -20,11 +24,15 @@ pub fn unit_vector(x: f64, y: f64, z: f64) -> UnitVector {
     vector(x, y, z).normalize()
 }
 
-const ZERO_VECTOR : Vector = Vector { x: 0.0, y: 0.0, z: 0.0 };
+const ZERO_VECTOR: Vector = Vector {
+    x: 0.0,
+    y: 0.0,
+    z: 0.0,
+};
 
 impl Vector {
     pub fn new(x: f64, y: f64, z: f64) -> Vector {
-        Vector {x: x, y: y, z: z}
+        Vector { x: x, y: y, z: z }
     }
 
     /// Creates a vector representing the direction from `src` to `dst`
@@ -43,7 +51,7 @@ impl Vector {
     }
 
     pub fn dot(&self, other: Vector) -> f64 {
-        (self.x * other.x) +  (self.y * other.y) + (self.z * other.z)
+        (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
     }
 
     /// Calculates the length of the vector
@@ -64,9 +72,9 @@ impl Vector {
     /// Tests that the vector is approximately equal to another vector.
     ///
     pub fn approx_eq(&self, other: Vector) -> bool {
-        (self.x - other.x).abs() < 1e-10 &&
-        (self.y - other.y).abs() < 1e-10 &&
-        (self.z - other.z).abs() < 1e-10
+        (self.x - other.x).abs() < 1e-10
+            && (self.y - other.y).abs() < 1e-10
+            && (self.z - other.z).abs() < 1e-10
     }
 
     pub fn transform(&self, t: &Matrix) -> Vector {
@@ -168,12 +176,36 @@ impl ops::Neg for Vector {
 pub mod unit_vectors {
     use super::Vector;
 
-    pub const POS_X: Vector = Vector {x:  1.0, y:  0.0, z:  0.0};
-    pub const POS_Y: Vector = Vector {x:  0.0, y:  1.0, z:  0.0};
-    pub const POS_Z: Vector = Vector {x:  0.0, y:  0.0, z:  1.0};
-    pub const NEG_X: Vector = Vector {x: -1.0, y:  0.0, z:  0.0};
-    pub const NEG_Y: Vector = Vector {x:  0.0, y: -1.0, z:  0.0};
-    pub const NEG_Z: Vector = Vector {x:  0.0, y:  0.0, z: -1.0};
+    pub const POS_X: Vector = Vector {
+        x: 1.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    pub const POS_Y: Vector = Vector {
+        x: 0.0,
+        y: 1.0,
+        z: 0.0,
+    };
+    pub const POS_Z: Vector = Vector {
+        x: 0.0,
+        y: 0.0,
+        z: 1.0,
+    };
+    pub const NEG_X: Vector = Vector {
+        x: -1.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    pub const NEG_Y: Vector = Vector {
+        x: 0.0,
+        y: -1.0,
+        z: 0.0,
+    };
+    pub const NEG_Z: Vector = Vector {
+        x: 0.0,
+        y: 0.0,
+        z: -1.0,
+    };
 }
 
 // -----------------------------------------------------------------------------
@@ -212,26 +244,81 @@ mod test {
 
     #[test]
     fn vector_cross_product() {
-        let a = Vector { x: 2.0, y: 3.0, z: 4.0 };
-        let b = Vector { x: 5.0, y: 6.0, z: 7.0 };
-        assert_eq!(a.cross(b), Vector { x: -3.0, y: 6.0, z: -3.0 })
+        let a = Vector {
+            x: 2.0,
+            y: 3.0,
+            z: 4.0,
+        };
+        let b = Vector {
+            x: 5.0,
+            y: 6.0,
+            z: 7.0,
+        };
+        assert_eq!(
+            a.cross(b),
+            Vector {
+                x: -3.0,
+                y: 6.0,
+                z: -3.0
+            }
+        )
     }
 
     #[test]
     fn vector_dot_product() {
-        let a = Vector { x: 1.0, y: 2.0, z: 3.0 };
-        let b = Vector { x: 4.0, y: 5.0, z: 6.0 };
+        let a = Vector {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+        };
+        let b = Vector {
+            x: 4.0,
+            y: 5.0,
+            z: 6.0,
+        };
         assert_eq!(32.0, a.dot(b))
     }
 
     #[test]
     fn vector_length() {
-        assert_eq!((Vector { x: 1.0, y: 0.0, z: 0.0}).length(), 1.0);
-        assert_eq!((Vector { x: 0.0, y: 1.0, z: 0.0}).length(), 1.0);
-        assert_eq!((Vector { x: 0.0, y: 0.0, z: 1.0}).length(), 1.0);
+        assert_eq!(
+            (Vector {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0
+            })
+            .length(),
+            1.0
+        );
+        assert_eq!(
+            (Vector {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0
+            })
+            .length(),
+            1.0
+        );
+        assert_eq!(
+            (Vector {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0
+            })
+            .length(),
+            1.0
+        );
 
-        let x : f64 = 3.0;
-        assert_eq!((Vector { x: 1.0, y: 1.0, z: 1.0}).length(), x.sqrt());
+        let x: f64 = 3.0;
+        assert_eq!(
+            (Vector {
+                x: 1.0,
+                y: 1.0,
+                z: 1.0
+            })
+            .length(),
+            x.sqrt()
+        );
     }
 
     #[test]
@@ -245,49 +332,127 @@ mod test {
 
     #[test]
     fn vector_default() -> () {
-        let v : Vector = Default::default();
-        assert_eq!(v, Vector { x: 0.0, y: 0.0, z: 0.0 });
+        let v: Vector = Default::default();
+        assert_eq!(
+            v,
+            Vector {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0
+            }
+        );
     }
 
     #[test]
     fn vector_equality() -> () {
-        let a = Vector { x: 1.0, y: 2.0, z: 3.0 };
-        assert_eq!(a,a);
+        let a = Vector {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+        };
+        assert_eq!(a, a);
 
-        let b = Vector { x: 1.0, y: 2.0, z: 3.0 };
-        let c = Vector { x: 3.0, y: 1.0, z: 2.0 };
+        let b = Vector {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+        };
+        let c = Vector {
+            x: 3.0,
+            y: 1.0,
+            z: 2.0,
+        };
         assert_eq!(a, b);
         assert!(!(a == c) && !(b == c))
     }
 
     #[test]
     fn vector_addition() -> () {
-        let a = Vector { x: 1.0, y:  3.0, z:  5.0 };
-        let b = Vector { x: 7.0, y: 11.0, z: 13.0 };
-        assert_eq!(a+b, Vector {x: 8.0, y: 14.0, z: 18.0});
-        assert_eq!(a+b, b+a);
+        let a = Vector {
+            x: 1.0,
+            y: 3.0,
+            z: 5.0,
+        };
+        let b = Vector {
+            x: 7.0,
+            y: 11.0,
+            z: 13.0,
+        };
+        assert_eq!(
+            a + b,
+            Vector {
+                x: 8.0,
+                y: 14.0,
+                z: 18.0
+            }
+        );
+        assert_eq!(a + b, b + a);
     }
 
     #[test]
     fn vector_subtraction() -> () {
-          let a = Vector { x: 1.0, y:  3.0, z:  5.0 };
-          let b = Vector { x: 7.0, y: 11.0, z: 13.0 };
-          assert_eq!(a-b, Vector {x: -6.0, y: -8.0, z: -8.0});
-          assert_eq!(b-a, Vector {x:  6.0, y:  8.0, z:  8.0});
+        let a = Vector {
+            x: 1.0,
+            y: 3.0,
+            z: 5.0,
+        };
+        let b = Vector {
+            x: 7.0,
+            y: 11.0,
+            z: 13.0,
+        };
+        assert_eq!(
+            a - b,
+            Vector {
+                x: -6.0,
+                y: -8.0,
+                z: -8.0
+            }
+        );
+        assert_eq!(
+            b - a,
+            Vector {
+                x: 6.0,
+                y: 8.0,
+                z: 8.0
+            }
+        );
     }
 
     #[test]
     fn vector_negation() -> () {
-        let v = Vector { x: 2.0, y: 4.0, z: 6.0 };
-        assert_eq!(-v, Vector { x: -2.0, y: -4.0, z: -6.0 });
+        let v = Vector {
+            x: 2.0,
+            y: 4.0,
+            z: 6.0,
+        };
+        assert_eq!(
+            -v,
+            Vector {
+                x: -2.0,
+                y: -4.0,
+                z: -6.0
+            }
+        );
         assert_eq!(-v, v * -1.0);
     }
 
     #[test]
     fn vector_scalar_multiplication() -> () {
-        let v = Vector { x: 2.0, y: 4.0, z: 6.0 };
-        assert_eq!( v * 1.0, v);
-        assert_eq!( v * 2.0, Vector { x: 4.0, y: 8.0, z: 12.0 });
+        let v = Vector {
+            x: 2.0,
+            y: 4.0,
+            z: 6.0,
+        };
+        assert_eq!(v * 1.0, v);
+        assert_eq!(
+            v * 2.0,
+            Vector {
+                x: 4.0,
+                y: 8.0,
+                z: 12.0
+            }
+        );
     }
 
     #[test]

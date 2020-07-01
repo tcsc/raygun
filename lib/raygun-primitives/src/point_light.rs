@@ -1,20 +1,19 @@
-use raygun_math::{Point, Vector, Ray};
-use raygun_material::{Colour};
-use crate::{
-    AxisAlignedBox,
-    Light,
-    Primitive
-};
+use crate::{AxisAlignedBox, Light, Primitive};
+use raygun_material::Colour;
+use raygun_math::{Point, Ray, Vector};
 
 #[derive(Debug)]
 pub struct PointLight {
     pub loc: Point,
-    pub colour: Colour
+    pub colour: Colour,
 }
 
 impl PointLight {
     pub fn new(pos: Point, colour: Colour) -> PointLight {
-        PointLight { loc: pos, colour: colour }
+        PointLight {
+            loc: pos,
+            colour: colour,
+        }
     }
 
     pub fn position(&self) -> Point {
@@ -34,7 +33,7 @@ impl Primitive for PointLight {
     fn bounding_box(&self) -> AxisAlignedBox {
         AxisAlignedBox {
             lower: Point::default(),
-            upper: Point::default()
+            upper: Point::default(),
         }
     }
 

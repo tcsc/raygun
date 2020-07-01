@@ -3,8 +3,8 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use simplelog::{TermLogger, TerminalMode, LevelFilter, Config};
-use log::{self, info, debug, error};
+use log::{self, debug, error, info};
+use simplelog::{Config, LevelFilter, TermLogger, TerminalMode};
 
 mod render;
 
@@ -16,41 +16,42 @@ fn main() {
 
     TermLogger::init(
         log::LevelFilter::Debug,
-        Config::default(), 
-        TerminalMode::Stdout).unwrap();
+        Config::default(),
+        TerminalMode::Stdout,
+    )
+    .unwrap();
 
     let args = parse_args();
     info!("Dimensions {} x {}", args.width, args.height);
 
-    let s = load_scene(args.scene_file)
-        .unwrap_or_else(|err| {
-            error!("Scene file loading failed:");
-            match err {
-                SceneError::FileError(e) => {
-                    error!("File IO error: {:?}", e);
-                },
-                SceneError::Template(s) => {
-                    error!("Template parse error: {}", s);
-                },
-                SceneError::Scene(errs) => {
-                    for e in errs {
-                        error!("{}", e)
-                    }
+    let s = load_scene(args.scene_file).unwrap_or_else(|err| {
+        error!("Scene file loading failed:");
+        match err {
+            SceneError::FileError(e) => {
+                error!("File IO error: {:?}", e);
+            }
+            SceneError::Template(s) => {
+                error!("Template parse error: {}", s);
+            }
+            SceneError::Scene(errs) => {
+                for e in errs {
+                    error!("{}", e)
                 }
-            };
-            exit(1);
-        });
+            }
+        };
+        exit(1);
+    });
 
     let options = render::RenderOptions {
         width: args.width,
-        height: args.height
+        height: args.height,
     };
 
     info!("Starting render...");
     if let Some(img) = render::render(&s, options) {
         info!("Saving to {:?}...", args.output_file);
         match img.save(args.output_file) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(_) => {}
         }
     }
@@ -60,7 +61,7 @@ struct Args {
     width: isize,
     height: isize,
     scene_file: PathBuf,
-    output_file: PathBuf
+    output_file: PathBuf,
 }
 
 fn parse_args() -> Args {
@@ -70,28 +71,33 @@ fn parse_args() -> Args {
         width: 640,
         height: 480,
         scene_file: PathBuf::default(),
-        output_file: PathBuf::default()
+        output_file: PathBuf::default(),
     };
 
     let mut scene_file = String::new();
     let mut image_file = String::from("render.png");
 
-    /* Artificial scope to limit borrows */ {
+    /* Artificial scope to limit borrows */
+    {
         let mut parser = ArgumentParser::new();
 
-        parser.refer(&mut result.width)
+        parser
+            .refer(&mut result.width)
             .add_option(&["-w", "--width"], Store, "Image width. Defaults to 640.")
             .metavar("INT");
 
-        parser.refer(&mut result.height)
+        parser
+            .refer(&mut result.height)
             .add_option(&["-h", "--height"], Store, "Image height. Defaults to 480.")
             .metavar("INT");
 
-        parser.refer(&mut image_file)
+        parser
+            .refer(&mut image_file)
             .add_option(&["-o", "--output"], Store, "Output image file")
             .metavar("FILE");
 
-        parser.refer(&mut scene_file)
+        parser
+            .refer(&mut scene_file)
             .add_argument("FILE", Store, "The scene file")
             .required()
             .metavar("FILE");

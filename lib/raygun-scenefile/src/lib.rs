@@ -1,33 +1,27 @@
-#![type_length_limit="2000000"]
+#![type_length_limit = "2000000"]
 #![allow(dead_code)]
 
-mod constructs;
 mod camera;
 mod colour;
+mod constructs;
 mod material;
 mod primitive;
 mod transform;
 
 use std::{
+    convert::From,
     fs::File,
     io::{self, Read},
     path::Path,
-    convert::From,
 };
 
-use nom::{
-    IResult,
-};
 use liquid;
 use log::{debug, info};
+use nom::IResult;
 
 use raygun_scene::Scene;
 
-use self::{
-    camera::*,
-    constructs::*,
-    primitive::*
-};
+use self::{camera::*, constructs::*, primitive::*};
 
 // ////////////////////////////////////////////////////////////////////////////
 // top level scene file
@@ -40,7 +34,7 @@ fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
     primitives(state.clone())(text).map(|(i, objs)| {
         let scene = Scene {
             camera: cam,
-            objects: objs
+            objects: objs,
         };
         (i, scene)
     })
@@ -50,7 +44,7 @@ fn scene_file<'a>(input: &'a [u8]) -> IResult<&'a [u8], Scene> {
 pub enum SceneError {
     FileError(io::Error),
     Template(String),
-    Scene(Vec<String>)
+    Scene(Vec<String>),
 }
 
 fn to_template_error(e: liquid::Error) -> SceneError {
@@ -68,10 +62,11 @@ fn scene_template(source: &str) -> Result<Scene, SceneError> {
             let mut globals = liquid::object!({});
 
             debug!("Rendering scene template...");
-            template.render(&mut globals)
+            template
+                .render(&mut globals)
                 .map_err(to_template_error)
                 .and_then(|scene_text| {
-                    let bytes : Vec<u8> = scene_text.as_bytes().to_vec();
+                    let bytes: Vec<u8> = scene_text.as_bytes().to_vec();
 
                     // uncomment for debug
                     // File::create("scene.rso").unwrap().write(&bytes);
@@ -79,16 +74,12 @@ fn scene_template(source: &str) -> Result<Scene, SceneError> {
                     debug!("Parsing scene...");
                     match scene_file(&bytes) {
                         IResult::Ok((_, s)) => Ok(s),
-                        IResult::Err(nom::Err::Incomplete(_)) => {
-                            Err(SceneError::Scene(vec![]))
-                        },
+                        IResult::Err(nom::Err::Incomplete(_)) => Err(SceneError::Scene(vec![])),
                         IResult::Err(nom::Err::Failure((_, err))) => {
                             let errors = vec![String::from(err.description())];
                             Err(SceneError::Scene(errors))
-                        },
-                        IResult::Err(_) => {
-                            Err(SceneError::Scene(vec!["Unknown".to_owned()]))
                         }
+                        IResult::Err(_) => Err(SceneError::Scene(vec!["Unknown".to_owned()])),
                     }
                 })
         })
@@ -98,14 +89,12 @@ pub fn load_scene<P: AsRef<Path>>(filename: P) -> Result<Scene, SceneError> {
     info!("Loading scene from {:?}...", filename.as_ref());
 
     File::open(filename)
-        .map_err(|e| { SceneError::FileError(e) })
+        .map_err(|e| SceneError::FileError(e))
         .and_then(|mut f| {
             let mut source = String::new();
             f.read_to_string(&mut source)
-                .map_err(|e| { SceneError::FileError(e) })
-                .and_then(|_| {
-                    scene_template(&source)
-                })
+                .map_err(|e| SceneError::FileError(e))
+                .and_then(|_| scene_template(&source))
         })
 }
 

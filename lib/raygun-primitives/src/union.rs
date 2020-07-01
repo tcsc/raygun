@@ -1,15 +1,13 @@
-use std::sync::Arc;
 use log::debug;
+use std::sync::Arc;
 
-use raygun_math::{
-    Point, Transform, Vector, Ray
-};
+use raygun_math::{Point, Ray, Transform, Vector};
 
 use super::{AxisAlignedBox, Object, Primitive};
 
 #[derive(Debug)]
 pub struct Union {
-    pub children: Vec<Arc<Object>>
+    pub children: Vec<Arc<Object>>,
 }
 
 impl Union {
@@ -39,7 +37,7 @@ impl Primitive for Union {
 
         let transform = match obj.transform {
             Some(ref t) => t.as_ref().clone(),
-            None => Transform::identity()
+            None => Transform::identity(),
         };
 
         v.push_transform(&transform);
@@ -55,7 +53,7 @@ impl Primitive for Union {
 impl Default for Union {
     fn default() -> Union {
         Union {
-            children: Vec::new()
+            children: Vec::new(),
         }
     }
 }

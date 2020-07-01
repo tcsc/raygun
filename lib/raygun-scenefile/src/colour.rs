@@ -1,10 +1,10 @@
 use super::constructs::*;
-use raygun_material::Colour; 
+use raygun_material::Colour;
 
 use nom::{
-    IResult,
     combinator::map,
-    sequence::{terminated, tuple}
+    sequence::{terminated, tuple},
+    IResult,
 };
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -49,7 +49,7 @@ mod test {
         }
     }
 
-    colour_literal_tests!{
+    colour_literal_tests! {
         literal_packed: "{1,0.5,0}", Colour {r: 1.0, g: 0.5, b: 0.0}, "",
         literal_spaced: "{ 1.0 , 0.5, 0.0}", Colour {r: 1.0, g: 0.5, b: 0.0}, "",
         literal_extra_spaced: "{ 1.0 , 0.5, 0.0}", Colour {r: 1.0, g: 0.5, b: 0.0}, "",

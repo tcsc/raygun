@@ -1,28 +1,28 @@
-pub mod aabb;
 pub mod _box;
-pub mod union;
-pub mod object;
-pub mod primitive;
-pub mod plane;
-pub mod sphere;
+pub mod aabb;
 pub mod light;
+pub mod object;
+pub mod plane;
 pub mod point_light;
+pub mod primitive;
+pub mod sphere;
+pub mod union;
 
 pub use self::{
+    _box::Box,
     aabb::AxisAlignedBox,
+    light::Light,
+    object::{Object, ObjectList},
+    plane::Plane,
+    point_light::PointLight,
     primitive::Primitive,
     sphere::Sphere,
-    plane::Plane,
     union::Union,
-    _box::Box,
-    object::{Object, ObjectList},
-    light::Light,
-    point_light::PointLight
 };
 
-use std::sync::Arc;
 use raygun_material::{Colour, Finish};
 use raygun_math::{Transform, Vector};
+use std::sync::Arc;
 
 ///
 /// The details of an object's surface at a given point.
@@ -31,7 +31,7 @@ use raygun_math::{Transform, Vector};
 pub struct SurfaceInfo<'a> {
     pub normal: Vector,
     pub colour: Colour,
-    pub finish: &'a Finish
+    pub finish: &'a Finish,
 }
 
 pub trait Visitor {

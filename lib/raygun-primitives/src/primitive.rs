@@ -1,17 +1,13 @@
-use std::fmt::Debug;
 use downcast::*;
+use std::fmt::Debug;
 
-use raygun_math::{ Ray, Point, Vector };
-use crate::{
-    AxisAlignedBox,
-    Light,
-    Object
-};
+use crate::{AxisAlignedBox, Light, Object};
+use raygun_math::{Point, Ray, Vector};
 
 ///
 /// The trait that defines a primitive object
 ///
-pub trait Primitive : downcast::Any + Debug + Send + Sync {
+pub trait Primitive: downcast::Any + Debug + Send + Sync {
     fn intersects(&self, r: Ray) -> Option<f64>;
     fn normal(&self, pt: Point) -> Vector;
 

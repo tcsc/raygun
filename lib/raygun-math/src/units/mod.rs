@@ -1,4 +1,4 @@
 mod angle;
 mod conversion;
 
-pub use self::angle::{Angle, Radians, Degrees, degrees, radians};
+pub use self::angle::{degrees, radians, Angle, Degrees, Radians};
