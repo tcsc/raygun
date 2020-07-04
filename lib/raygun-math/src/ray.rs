@@ -43,22 +43,34 @@ impl Ray {
 }
 
 #[cfg(test)]
+impl quickcheck::Arbitrary for Ray {
+    fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
+        Ray::new(Point::arbitrary(g), Vector::arbitrary(g))
+    }
+}
+
+#[cfg(test)]
 mod test {
     use crate::*;
+    use quickcheck::{quickcheck, TestResult};
+    use quickcheck_macros::quickcheck as quickcheck_test;
 
-    #[test]
-    fn ray_construction() {
-        let r = Ray::new(point(1.0, 2.0, 3.0), vector(2.0, 2.0, 2.0));
+    #[quickcheck_test]
+    fn construction(p: Point, v: Vector) -> bool {
+        let r = Ray::new(p, v);
 
-        assert_eq!(r.src, point(1.0, 2.0, 3.0));
-        assert_eq!(r.dir, vector(2.0, 2.0, 2.0).normalize());
+        (r.src == p) && (r.dir == v.normalize())
     }
 
-    #[test]
-    fn extention() {
-        let r = Ray::new(point(0.0, 0.0, 0.0), vector(0.0, 1.0, 0.0));
-        let pt = r.extend(10.0);
-        assert_eq!(pt, point(0.0, 10.0, 0.0))
+    #[quickcheck_test]
+    fn extention(r: Ray, f: f64) -> bool {
+        let pt = r.extend(f);
+        let expected = point(
+            r.src.x + (f * r.dir.x),
+            r.src.y + (f * r.dir.y),
+            r.src.z + (f * r.dir.z),
+        );
+        pt.approx_eq(expected)
     }
 
     #[test]

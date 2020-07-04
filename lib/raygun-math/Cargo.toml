@@ -8,3 +8,5 @@ edition = "2018"
 
 [dev-dependencies]
 float-cmp = "0.8"
+quickcheck = "0.9"
+quickcheck_macros = "0.9"

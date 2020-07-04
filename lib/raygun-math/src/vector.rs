@@ -1,6 +1,5 @@
-use std::{cmp, fmt, ops};
-
 use super::Matrix;
+use std::{cmp, fmt, ops};
 
 /// Defines an immutable 3D vector.
 #[derive(Default, Clone, Copy)]
@@ -16,7 +15,7 @@ pub fn vector(x: f64, y: f64, z: f64) -> Vector {
 }
 
 /// Alias of Vector for when you want to emphasize the unit-vector-ness
-/// of the vector. No actual normailsation is performed automatically.
+/// of the vector. No actual normalisation is performed automatically.
 pub type UnitVector = Vector;
 
 /// Creates a unit vector
@@ -231,11 +230,21 @@ pub fn point(x: f64, y: f64, z: f64) -> Point {
 // -----------------------------------------------------------------------------
 
 #[cfg(test)]
+impl quickcheck::Arbitrary for Vector {
+    fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
+        Vector::new(f64::arbitrary(g), f64::arbitrary(g), f64::arbitrary(g))
+    }
+}
+
+#[cfg(test)]
 mod test {
     use super::*;
+    use float_cmp::ApproxEq;
+    use quickcheck::{quickcheck, TestResult};
+    use quickcheck_macros::quickcheck as quickcheck_test;
 
     #[test]
-    fn vector_between() {
+    fn between() {
         let src = point(1.0, 2.0, 3.0);
         let dst = point(5.0, 7.0, 9.0);
         let v = Vector::between(src, dst);
@@ -243,7 +252,7 @@ mod test {
     }
 
     #[test]
-    fn vector_cross_product() {
+    fn cross_product() {
         let a = Vector {
             x: 2.0,
             y: 3.0,
@@ -265,7 +274,7 @@ mod test {
     }
 
     #[test]
-    fn vector_dot_product() {
+    fn dot_product() {
         let a = Vector {
             x: 1.0,
             y: 2.0,
@@ -279,59 +288,33 @@ mod test {
         assert_eq!(32.0, a.dot(b))
     }
 
-    #[test]
-    fn vector_length() {
-        assert_eq!(
-            (Vector {
-                x: 1.0,
-                y: 0.0,
-                z: 0.0
-            })
-            .length(),
-            1.0
-        );
-        assert_eq!(
-            (Vector {
-                x: 0.0,
-                y: 1.0,
-                z: 0.0
-            })
-            .length(),
-            1.0
-        );
-        assert_eq!(
-            (Vector {
-                x: 0.0,
-                y: 0.0,
-                z: 1.0
-            })
-            .length(),
-            1.0
-        );
+    #[quickcheck_test]
+    fn dot_product_is_commutative(a: Vector, b: Vector) -> bool {
+        let margin = float_cmp::F64Margin::from((0.0, 3));
+        a.dot(b).approx_eq(b.dot(a), margin)
+    }
 
-        let x: f64 = 3.0;
-        assert_eq!(
-            (Vector {
-                x: 1.0,
-                y: 1.0,
-                z: 1.0
-            })
-            .length(),
-            x.sqrt()
-        );
+    #[quickcheck_test]
+    fn length(v: Vector) -> bool {
+        let margin = float_cmp::F64Margin::from((0.0, 3));
+        v.length()
+            .approx_eq(((v.x * v.x) + (v.y * v.y) + (v.z * v.z)).sqrt(), margin)
     }
 
     #[test]
-    fn vector_normalise() {
-        let v = vector(2.0, 2.0, 2.0);
-        let n = v.normalize();
-        assert!((n.x - 0.57735).abs() < 0.000001);
-        assert!((n.y - 0.57735).abs() < 0.000001);
-        assert!((n.z - 0.57735).abs() < 0.000001);
+    fn normalise() {
+        fn prop(v: Vector) -> TestResult {
+            if v.x == 0.0 && v.y == 0.0 && v.z == 0.0 {
+                TestResult::discard()
+            } else {
+                TestResult::from_bool(v.normalize().length().approx_eq(1.0, (0.0, 3)))
+            }
+        }
+        quickcheck(prop as fn(Vector) -> TestResult)
     }
 
     #[test]
-    fn vector_default() -> () {
+    fn default() -> () {
         let v: Vector = Default::default();
         assert_eq!(
             v,
@@ -343,116 +326,55 @@ mod test {
         );
     }
 
-    #[test]
-    fn vector_equality() -> () {
-        let a = Vector {
-            x: 1.0,
-            y: 2.0,
-            z: 3.0,
-        };
-        assert_eq!(a, a);
-
-        let b = Vector {
-            x: 1.0,
-            y: 2.0,
-            z: 3.0,
-        };
-        let c = Vector {
-            x: 3.0,
-            y: 1.0,
-            z: 2.0,
-        };
-        assert_eq!(a, b);
-        assert!(!(a == c) && !(b == c))
+    #[quickcheck_test]
+    fn equality(v: Vector) -> bool {
+        v == v
     }
 
     #[test]
-    fn vector_addition() -> () {
-        let a = Vector {
-            x: 1.0,
-            y: 3.0,
-            z: 5.0,
-        };
-        let b = Vector {
-            x: 7.0,
-            y: 11.0,
-            z: 13.0,
-        };
-        assert_eq!(
-            a + b,
-            Vector {
-                x: 8.0,
-                y: 14.0,
-                z: 18.0
+    fn inequality() {
+        fn prop(a: Vector, b: Vector) -> TestResult {
+            if a.x == b.x && a.y == b.y && a.z == b.z {
+                TestResult::discard()
+            } else {
+                TestResult::from_bool(a != b)
             }
-        );
-        assert_eq!(a + b, b + a);
+        }
+        quickcheck(prop as fn(Vector, Vector) -> TestResult)
     }
 
-    #[test]
-    fn vector_subtraction() -> () {
-        let a = Vector {
-            x: 1.0,
-            y: 3.0,
-            z: 5.0,
-        };
-        let b = Vector {
-            x: 7.0,
-            y: 11.0,
-            z: 13.0,
-        };
-        assert_eq!(
-            a - b,
-            Vector {
-                x: -6.0,
-                y: -8.0,
-                z: -8.0
-            }
-        );
-        assert_eq!(
-            b - a,
-            Vector {
-                x: 6.0,
-                y: 8.0,
-                z: 8.0
-            }
-        );
+    #[quickcheck_test]
+    fn addition(a: Vector, b: Vector) -> bool {
+        let margin = float_cmp::F64Margin::from((0.0, 3));
+        let c = a + b;
+        c.x.approx_eq(a.x + b.x, margin)
+            && c.y.approx_eq(a.y + b.y, margin)
+            && c.z.approx_eq(a.z + b.z, margin)
     }
 
-    #[test]
-    fn vector_negation() -> () {
-        let v = Vector {
-            x: 2.0,
-            y: 4.0,
-            z: 6.0,
-        };
-        assert_eq!(
-            -v,
-            Vector {
-                x: -2.0,
-                y: -4.0,
-                z: -6.0
-            }
-        );
-        assert_eq!(-v, v * -1.0);
+    #[quickcheck_test]
+    fn subtraction(a: Vector, b: Vector) -> bool {
+        let margin = float_cmp::F64Margin::from((0.0, 3));
+        let c = a - b;
+        c.x.approx_eq(a.x - b.x, margin)
+            && c.y.approx_eq(a.y - b.y, margin)
+            && c.z.approx_eq(a.z - b.z, margin)
     }
 
-    #[test]
-    fn vector_scalar_multiplication() -> () {
-        let v = Vector {
-            x: 2.0,
-            y: 4.0,
-            z: 6.0,
-        };
-        assert_eq!(v * 1.0, v);
-        assert_eq!(
-            v * 2.0,
-            Vector {
-                x: 4.0,
-                y: 8.0,
-                z: 12.0
-            }
-        );
+    #[quickcheck_test]
+    fn negation(v: Vector) -> bool {
+        let margin = float_cmp::F64Margin::from((0.0, 3));
+        let n = -v;
+        n.x.approx_eq(-v.x, margin) && n.y.approx_eq(-v.y, margin) && n.z.approx_eq(-v.z, margin)
+    }
+
+    #[quickcheck_test]
+    fn scalar_multiplication(n: f64, v: Vector) -> bool {
+        let margin = float_cmp::F64Margin::from((0.0, 3));
+        let r = n * v;
+        r.x.approx_eq(n * v.x, margin)
+            && r.y.approx_eq(n * v.y, margin)
+            && r.z.approx_eq(n * v.z, margin)
     }
 
     #[test]

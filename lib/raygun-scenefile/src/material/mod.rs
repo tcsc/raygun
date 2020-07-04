@@ -1,14 +1,14 @@
+mod opacity;
 mod pigment;
 
 use nom::{branch::alt, multi::separated_list, IResult};
 
 use self::pigment::pigment;
 use super::constructs::*;
-use raygun_material::{Finish, Material, Pigment};
+use raygun_material::{Finish, Material, Opacity, Pigment};
 
 pub fn finish<'a>(_scene: SceneRef) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], Finish> {
     enum Arg {
-        Opacity(f64),
         Reflection(f64),
         Ambient(f64),
         Diffuse(f64),
@@ -19,7 +19,6 @@ pub fn finish<'a>(_scene: SceneRef) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], Fi
         let material_block = block(separated_list(
             comma,
             ws(alt((
-                map_named_value("opacity", real_number, Arg::Opacity),
                 map_named_value("reflection", real_number, Arg::Reflection),
                 map_named_value("ambient", real_number, Arg::Ambient),
                 map_named_value("diffuse", real_number, Arg::Diffuse),
@@ -32,7 +31,6 @@ pub fn finish<'a>(_scene: SceneRef) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], Fi
 
             for arg in args {
                 match arg {
-                    Arg::Opacity(o) => result.opacity = o,
                     Arg::Reflection(r) => result.reflection = r,
                     Arg::Ambient(a) => result.ambient = a,
                     Arg::Diffuse(d) => result.diffuse = d,
@@ -49,6 +47,7 @@ pub fn material<'a>(scene: SceneRef) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], M
     enum Arg {
         Pigment(Pigment),
         Finish(Finish),
+        Opacity(Opacity),
     };
 
     move |input| {
@@ -57,6 +56,7 @@ pub fn material<'a>(scene: SceneRef) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], M
             ws(alt((
                 map_named_value("pigment", pigment(scene.clone()), Arg::Pigment),
                 map_named_value("finish", finish(scene.clone()), Arg::Finish),
+                map_named_value("opacity", opacity::parse, Arg::Opacity),
             ))),
         ));
 
@@ -67,6 +67,7 @@ pub fn material<'a>(scene: SceneRef) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], M
                 match arg {
                     Arg::Finish(f) => result.finish = f,
                     Arg::Pigment(p) => result.pigment = p,
+                    Arg::Opacity(o) => result.opacity = o,
                 }
             }
 
@@ -79,11 +80,32 @@ pub fn material<'a>(scene: SceneRef) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], M
 mod test {
     use super::*;
     use float_cmp::ApproxEqUlps;
+    use raygun_material::Colour;
+
+    #[test]
+    fn parses_simple_material() {
+        let text = r#"{
+            pigment: solid { colour: {0.1, 0.2, 0.3} },
+            finish: { reflection: 0.4 },
+            opacity: { alpha: 0.25, refractive_index: 1.1 }
+        }"#;
+
+        let scene = SceneRef::default();
+
+        let (_, mat) = material(scene)(text.as_bytes()).unwrap();
+        {
+            let Pigment::Solid(c) = mat.pigment;
+            assert!(c.approx_eq(Colour::new(0.1, 0.2, 0.3)));
+        }
+
+        assert!(mat.finish.reflection.approx_eq_ulps(&0.4, 5));
+        assert!(mat.opacity.alpha.approx_eq_ulps(&0.25, 5));
+        assert!(mat.opacity.refractive_index.approx_eq_ulps(&1.1, 5));
+    }
 
     #[test]
     fn parses_completely_specified_finish() {
         let text = r#"{
-            opacity: 0.1,
             reflection: 0.2,
             ambient: 0.3,
             diffuse: 0.4,
@@ -94,13 +116,6 @@ mod test {
 
         match finish(scene)(text.as_bytes()) {
             IResult::Ok((_, actual)) => {
-                assert!(
-                    actual.opacity.approx_eq_ulps(&0.1, 5),
-                    "Expected opacity = {}, got {}",
-                    0.1,
-                    actual.opacity
-                );
-
                 assert!(
                     actual.reflection.approx_eq_ulps(&0.2, 5),
                     "Expected reflection = {}, got {}",

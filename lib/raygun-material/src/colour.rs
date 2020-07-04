@@ -15,6 +15,7 @@ pub const BLACK: Colour = Colour {
     g: 0.0,
     b: 0.0,
 };
+
 pub const WHITE: Colour = Colour {
     r: 1.0,
     g: 1.0,
